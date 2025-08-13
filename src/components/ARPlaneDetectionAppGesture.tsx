@@ -20,24 +20,48 @@ const ARPlaneDetectionAppGesture = () => {
   const [rotationX, setRotationX] = useState(0);
   const [modelScale, setModelScale] = useState(2.4); // デフォルトのスケール
   const modelRef = useRef<THREE.Object3D | null>(null);
+  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
+  const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
+
+  // マウス座標を正規化してレイキャスティングで3D位置を計算
+  const updateModelPosition = (clientX: number, clientY: number) => {
+    if (!modelRef.current || !cameraRef.current || !rendererRef.current) return;
+    
+    const rect = rendererRef.current.domElement.getBoundingClientRect();
+    mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
+    
+    // 床面の高さで位置を計算
+    const floorY = -2;
+    const direction = raycasterRef.current.ray.direction;
+    const origin = raycasterRef.current.ray.origin;
+    const distance = (floorY - origin.y) / direction.y;
+    
+    if (distance > 0) {
+      const newPosition = origin.clone().add(direction.clone().multiplyScalar(distance));
+      modelRef.current.position.x = newPosition.x;
+      modelRef.current.position.z = newPosition.z;
+      
+      // ふわふわアニメーションのベース位置も更新
+      if ((modelRef.current as any).floatData) {
+        (modelRef.current as any).floatData.baseY = floorY + 0.1;
+      }
+    }
+  };
 
   // useGestureでジェスチャーハンドリング
   const bind = useGesture({
-    onDrag: ({ offset: [x, y], first, active }) => {
+    onDrag: ({ xy: [x, y], first, active }) => {
       if (!modelRef.current || !active) return;
       
       if (first) {
         console.log('Drag started');
       }
       
-      // ドラッグでモデル移動 - 画面座標を3D座標に変換
-      const newX = (x / window.innerWidth) * 8 - 4; // -4 to 4 の範囲
-      const newZ = -(y / window.innerHeight) * 6 - 2; // -8 to 2 の範囲
-      
-      modelRef.current.position.x = newX;
-      modelRef.current.position.z = newZ;
-      
-      console.log('Model position:', newX.toFixed(2), newZ.toFixed(2));
+      // マウス位置から3D空間の位置を計算してモデル移動
+      updateModelPosition(x, y);
     },
     
     onPinch: ({ da: [distance, angle], first, memo }) => {
@@ -73,10 +97,6 @@ const ARPlaneDetectionAppGesture = () => {
       modelRef.current.scale.setScalar(newScale);
     }
   }, {
-    drag: {
-      bounds: { left: -window.innerWidth, right: window.innerWidth, top: -window.innerHeight, bottom: window.innerHeight },
-      rubberband: true
-    },
     pinch: {
       scaleBounds: { min: 0.1, max: 5 },
       rubberband: true
