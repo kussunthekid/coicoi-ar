@@ -95,6 +95,16 @@ const ARPlaneDetectionApp = () => {
           model.position.copy(plane.position);
           model.position.y += 0.1; // 平面の少し上に配置
           
+          // 当たり判定用の透明な球体を追加（タップしやすくする）
+          const hitBoxGeometry = new THREE.SphereGeometry(1, 8, 8);
+          const hitBoxMaterial = new THREE.MeshBasicMaterial({ 
+            visible: false,
+            transparent: true,
+            opacity: 0
+          });
+          const hitBox = new THREE.Mesh(hitBoxGeometry, hitBoxMaterial);
+          hitBox.position.set(0, 0, 0);
+          model.add(hitBox);
           
           // ふわふわアニメーション用のデータを設定
           (model as any).floatData = {
@@ -203,7 +213,7 @@ const ARPlaneDetectionApp = () => {
       mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     };
 
-    // モデルをクリック検出（シンプル版）
+    // モデルをクリック検出
     const getIntersectedModel = (clientX: number, clientY: number) => {
       getMousePosition(clientX, clientY);
       raycasterRef.current.setFromCamera(mouseRef.current, camera);
@@ -223,11 +233,7 @@ const ARPlaneDetectionApp = () => {
         }
       }
       
-      // フォールバック: 最初のオブジェクトを返す
-      if (objectsRef.current.length > 0) {
-        return objectsRef.current[0];
-      }
-      
+      // モデルに触れていない場合はnullを返す
       return null;
     };
 
@@ -329,20 +335,39 @@ const ARPlaneDetectionApp = () => {
 
     // タッチイベント（モバイル）
     const handleTouchStart = (event: TouchEvent) => {
+      event.preventDefault(); // デフォルトのスクロールを防ぐ
       console.log('Touch start:', event.touches.length, 'touches');
       
       if (event.touches.length === 1) {
         // 1本指タッチ - 移動モード
         const touch = event.touches[0];
+        
+        // まず、モデルをタップしたか確認
         const model = getIntersectedModel(touch.clientX, touch.clientY);
         
         if (model) {
+          // モデルをタップした場合のみドラッグ開始
           selectedObjectRef.current = model;
           isDraggingRef.current = true;
           setCurrentMode('移動中');
           setLastTouchX(touch.clientX);
           setLastTouchY(touch.clientY);
-          console.log('Touch drag mode started');
+          console.log('Touch drag mode started for model');
+        } else if (modelRef.current) {
+          // モデルの近くをタップした場合も反応（使いやすさのため）
+          const distance = Math.sqrt(
+            Math.pow(touch.clientX - window.innerWidth / 2, 2) +
+            Math.pow(touch.clientY - window.innerHeight / 2, 2)
+          );
+          
+          if (distance < 200) { // 画面中央から200px以内
+            selectedObjectRef.current = modelRef.current;
+            isDraggingRef.current = true;
+            setCurrentMode('移動中');
+            setLastTouchX(touch.clientX);
+            setLastTouchY(touch.clientY);
+            console.log('Touch drag mode started (near model)');
+          }
         }
       } else if (event.touches.length === 2) {
         // 2本指タッチ - 回転モード
@@ -424,6 +449,7 @@ const ARPlaneDetectionApp = () => {
     };
 
     const handleTouchEnd = (event: TouchEvent) => {
+      event.preventDefault(); // デフォルトの動作を防ぐ
       console.log('Touch end:', event.touches.length, 'touches remaining');
       
       // タッチが完全に終了した場合のみリセット
@@ -536,7 +562,7 @@ const ARPlaneDetectionApp = () => {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-black">
+    <div className="relative w-full h-screen overflow-hidden bg-black touch-none">
       {!isARActive ? (
         <div 
           onClick={startAR}
@@ -560,7 +586,7 @@ const ARPlaneDetectionApp = () => {
           />
           
           {/* Three.jsレンダリングエリア */}
-          <div ref={mountRef} className="absolute top-0 left-0 w-full h-full" />
+          <div ref={mountRef} className="absolute top-0 left-0 w-full h-full touch-none" />
           
           {/* 床面検出状態の表示 */}
           <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white p-3 rounded-lg">
