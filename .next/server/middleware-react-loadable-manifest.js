@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST='{"app/page.tsx -> ../components/ARJSApp":{"id":6134,"files":["static/chunks/134.0ad2791f2529c442.js"]}}';
