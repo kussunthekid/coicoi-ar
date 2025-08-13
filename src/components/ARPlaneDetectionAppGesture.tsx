@@ -23,46 +23,42 @@ const ARPlaneDetectionAppGesture = () => {
 
   // useGestureでジェスチャーハンドリング
   const bind = useGesture({
-    onDrag: ({ xy: [x, y], movement: [mx, my], first, active }) => {
-      if (!modelRef.current) return;
+    onDrag: ({ offset: [x, y], first, active }) => {
+      if (!modelRef.current || !active) return;
       
       if (first) {
         console.log('Drag started');
       }
       
-      if (active) {
-        // ドラッグでモデル移動
-        modelRef.current.position.x += mx * 0.01;
-        modelRef.current.position.z += my * 0.01;
-      }
+      // ドラッグでモデル移動 - 画面座標を3D座標に変換
+      const newX = (x / window.innerWidth) * 8 - 4; // -4 to 4 の範囲
+      const newZ = -(y / window.innerHeight) * 6 - 2; // -8 to 2 の範囲
+      
+      modelRef.current.position.x = newX;
+      modelRef.current.position.z = newZ;
+      
+      console.log('Model position:', newX.toFixed(2), newZ.toFixed(2));
     },
     
-    onPinch: ({ da: [distance, angle], origin: [ox, oy], first, memo }) => {
+    onPinch: ({ da: [distance, angle], first, memo }) => {
       if (!modelRef.current) return;
       
       if (first) {
-        console.log('Pinch/Rotation started');
+        console.log('2-finger rotation started');
         return { 
-          initialRotation: rotationY, 
-          initialScale: modelScale,
+          initialRotation: rotationY,
           initialAngle: angle
         };
       }
       
-      // 2本指の回転でモデルを水平回転（角度の差分を計算）
+      // 2本指の回転でモデルを水平回転のみ（スケール変更なし）
       const angleDiff = angle - (memo?.initialAngle || 0);
       const angleInRadians = (angleDiff * Math.PI) / 180;
       const newRotationY = (memo?.initialRotation || rotationY) + angleInRadians;
       setRotationY(newRotationY);
       modelRef.current.rotation.y = newRotationY;
       
-      // ピンチでスケール変更
-      const scaleMultiplier = distance / 200; // 感度調整
-      const newScale = Math.max(0.5, Math.min(10.0, (memo?.initialScale || modelScale) * scaleMultiplier));
-      setModelScale(newScale);
-      modelRef.current.scale.setScalar(newScale);
-      
-      console.log('Angle diff:', Math.round(angleDiff), '° Rotation:', Math.round((newRotationY * 180) / Math.PI), '° Scale:', newScale.toFixed(2));
+      console.log('Rotation:', Math.round((newRotationY * 180) / Math.PI), '°');
       
       return memo;
     },
@@ -78,10 +74,11 @@ const ARPlaneDetectionAppGesture = () => {
     }
   }, {
     drag: {
-      from: () => [0, 0]
+      bounds: { left: -window.innerWidth, right: window.innerWidth, top: -window.innerHeight, bottom: window.innerHeight },
+      rubberband: true
     },
     pinch: {
-      scaleBounds: { min: 0.5, max: 10 },
+      scaleBounds: { min: 0.1, max: 5 },
       rubberband: true
     }
   });
