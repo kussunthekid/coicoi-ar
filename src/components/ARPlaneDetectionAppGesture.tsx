@@ -360,19 +360,6 @@ const ARPlaneDetectionAppGesture = () => {
             style={{ touchAction: 'none' }}
           />
           
-          {/* 床面検出状態の表示 */}
-          <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white p-3 rounded-lg">
-            <div className="text-sm font-semibold mb-2">床面検出状況</div>
-            <div className="text-xs">
-              検出された床面: {detectedPlanes.length}個
-            </div>
-            {detectedPlanes.length > 0 && (
-              <div className="text-xs mt-1 text-green-400">
-                ✓ coicoi.glbが動作中
-              </div>
-            )}
-          </div>
-
           {/* コンパクトなモデル制御UI */}
           {detectedPlanes.length > 0 && (
             <div className="absolute top-4 right-4 flex flex-col space-y-2">
