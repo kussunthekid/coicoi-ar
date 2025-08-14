@@ -142,12 +142,26 @@ const ARPlaneDetectionAppGesture = () => {
       mountRef.current.appendChild(renderer.domElement);
     }
 
-    // ライト追加
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    // ライト追加（明るさを改善）
+    // アンビエントライト（環境光）- 全体的な明るさ
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(0, 10, 5);
+    
+    // メインのディレクショナルライト（太陽光のような光）
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    directionalLight.position.set(5, 10, 5);
+    directionalLight.castShadow = false;
     scene.add(directionalLight);
+    
+    // 補助のディレクショナルライト（反対側から）
+    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight2.position.set(-5, 5, -5);
+    scene.add(directionalLight2);
+    
+    // ポイントライト（モデルの近くに配置）
+    const pointLight = new THREE.PointLight(0xffffff, 1.0, 100);
+    pointLight.position.set(0, 3, 0);
+    scene.add(pointLight);
 
     // 床面検出のシミュレーション
     const detectFloorPlanes = () => {
