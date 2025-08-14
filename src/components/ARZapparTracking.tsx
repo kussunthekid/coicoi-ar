@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import * as ZapparThree from '@zappar/zappar-threejs';
 import { GLTFLoader } from 'three-stdlib';
 import { Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useGesture } from '@use-gesture/react';
+
+// Zapparのダイナミックインポート（SSRエラー回避）
+let ZapparThree: any = null;
 
 const ARZapparTracking = () => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -115,17 +117,22 @@ const ARZapparTracking = () => {
   useEffect(() => {
     if (!isARActive) return;
 
-    // Three.jsのセットアップ
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    // Zapparの動的ロード
+    const initZappar = async () => {
+      try {
+        ZapparThree = await import('@zappar/zappar-threejs');
+        
+        // Three.jsのセットアップ
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
-    // シーン作成
-    const scene = new THREE.Scene();
-    sceneRef.current = scene;
+        // シーン作成
+        const scene = new THREE.Scene();
+        sceneRef.current = scene;
 
-    // Zapparカメラ作成
-    const camera = new ZapparThree.Camera();
-    cameraRef.current = camera;
+        // Zapparカメラ作成
+        const camera = new ZapparThree.Camera();
+        cameraRef.current = camera;
 
     // レンダラー作成
     const renderer = new THREE.WebGLRenderer({ 

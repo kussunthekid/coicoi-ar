@@ -1,12 +1,18 @@
 {
-  "app/page.tsx -> ../components/ARZapparTracking": {
-    "id": 1524,
+  "app/page.tsx -> ../components/ARZapparTrackingFixed": {
+    "id": 3626,
     "files": [
       "static/chunks/b536a0f1.eb70e088bfc9489f.js",
       "static/chunks/bd904a5c.1bbfcfbeda1a5494.js",
-      "static/chunks/546.41fb37013553c37f.js",
-      "static/chunks/669.a815174c5df7017a.js",
-      "static/chunks/524.7a6bea16099c4c26.js"
+      "static/chunks/496.c518236a48b70329.js",
+      "static/chunks/626.4b270e0845f952b9.js"
+    ]
+  },
+  "components/ARZapparTrackingFixed.tsx -> @zappar/zappar-threejs": {
+    "id": 6280,
+    "files": [
+      "static/chunks/285.4a8daa9636b94f78.js",
+      "static/chunks/280.d28f0a2d936a283e.js"
     ]
   }
 }
