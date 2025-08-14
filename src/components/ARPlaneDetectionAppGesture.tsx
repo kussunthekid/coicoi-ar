@@ -68,30 +68,21 @@ const ARPlaneDetectionAppGesture = () => {
       if (!modelRef.current) return;
       
       if (first) {
-        console.log('2-finger pinch/rotation started');
+        console.log('2-finger rotation started');
         return { 
           initialRotation: rotationY,
-          initialAngle: angle,
-          initialScale: modelScale,
-          initialDistance: distance
+          initialAngle: angle
         };
       }
       
-      // 2本指の回転でモデルを水平回転
+      // 2本指の回転でモデルを水平回転のみ（ピンチ拡大は削除）
       const angleDiff = angle - (memo?.initialAngle || 0);
       const angleInRadians = (angleDiff * Math.PI) / 180;
       const newRotationY = (memo?.initialRotation || rotationY) + angleInRadians;
       setRotationY(newRotationY);
       modelRef.current.rotation.y = newRotationY;
       
-      // 2本指のピンチでスケール変更
-      const distanceChange = distance - (memo?.initialDistance || 0);
-      const scaleMultiplier = 1 + distanceChange * 0.01; // 感度調整
-      const newScale = Math.max(0.5, Math.min(10.0, (memo?.initialScale || modelScale) * scaleMultiplier));
-      setModelScale(newScale);
-      modelRef.current.scale.setScalar(newScale);
-      
-      console.log('Rotation:', Math.round((newRotationY * 180) / Math.PI), '° Scale:', newScale.toFixed(2));
+      console.log('Rotation:', Math.round((newRotationY * 180) / Math.PI), '°');
       
       return memo;
     },
