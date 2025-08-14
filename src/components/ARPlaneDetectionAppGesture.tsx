@@ -53,30 +53,15 @@ const ARPlaneDetectionAppGesture = () => {
 
   // useGestureでジェスチャーハンドリング
   const bind = useGesture({
-    onDrag: ({ xy: [x, y], movement: [mx, my], first, active, buttons, shiftKey }) => {
+    onDrag: ({ xy: [x, y], first, active }) => {
       if (!modelRef.current || !active) return;
       
-      // 右クリック（button=2）またはShiftキーで回転モード
-      if (buttons === 2 || shiftKey) {
-        if (first) {
-          console.log('Right-click/Shift rotation started');
-        }
-        
-        // 右クリックドラッグまたはShift+ドラッグで水平回転
-        const rotationChange = mx * 0.01; // 感度調整
-        const newRotationY = rotationY + rotationChange;
-        setRotationY(newRotationY);
-        modelRef.current.rotation.y = newRotationY;
-        console.log('Drag Rotation:', Math.round((newRotationY * 180) / Math.PI), '°');
-      } else {
-        // 通常の左クリックドラッグで移動
-        if (first) {
-          console.log('Drag started');
-        }
-        
-        // マウス位置から3D空間の位置を計算してモデル移動
-        updateModelPosition(x, y);
+      if (first) {
+        console.log('Drag started');
       }
+      
+      // マウス位置から3D空間の位置を計算してモデル移動
+      updateModelPosition(x, y);
     },
     
     onPinch: ({ da: [distance, angle], first, memo }) => {
@@ -373,7 +358,6 @@ const ARPlaneDetectionAppGesture = () => {
             {...bind()}
             className="absolute top-0 left-0 w-full h-full touch-none"
             style={{ touchAction: 'none' }}
-            onContextMenu={(e) => e.preventDefault()} // 右クリックメニューを無効化
           />
           
           {/* 床面検出状態の表示 */}
