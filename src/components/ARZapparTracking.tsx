@@ -1,0 +1,456 @@
+import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import * as ZapparThree from '@zappar/zappar-threejs';
+import { GLTFLoader } from 'three-stdlib';
+import { Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
+import { useGesture } from '@use-gesture/react';
+
+const ARZapparTracking = () => {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<ZapparThree.Camera | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const trackerRef = useRef<ZapparThree.InstantWorldTracker | null>(null);
+  const [isARActive, setIsARActive] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
+  const [isPlaced, setIsPlaced] = useState(false);
+  
+  const [rotationY, setRotationY] = useState(-100 * Math.PI / 180);
+  const [modelScale, setModelScale] = useState(2.4);
+  const modelRef = useRef<THREE.Object3D | null>(null);
+  const anchorGroupRef = useRef<THREE.Group | null>(null);
+  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
+  const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
+
+  // マウス座標を正規化してレイキャスティングで3D位置を計算
+  const updateModelPosition = (clientX: number, clientY: number) => {
+    if (!modelRef.current || !cameraRef.current || !rendererRef.current) return;
+    
+    const rect = rendererRef.current.domElement.getBoundingClientRect();
+    mouseRef.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    mouseRef.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
+    
+    // 床面の高さで位置を計算
+    const floorY = 0;
+    const direction = raycasterRef.current.ray.direction;
+    const origin = raycasterRef.current.ray.origin;
+    const distance = (floorY - origin.y) / direction.y;
+    
+    if (distance > 0) {
+      const newPosition = origin.clone().add(direction.clone().multiplyScalar(distance));
+      modelRef.current.position.x = newPosition.x;
+      modelRef.current.position.z = newPosition.z;
+      
+      // ふわふわアニメーションのベース位置も更新
+      if ((modelRef.current as any).floatData) {
+        (modelRef.current as any).floatData.baseY = floorY + 0.1;
+      }
+    }
+  };
+
+  // useGestureでジェスチャーハンドリング
+  const bind = useGesture({
+    onDrag: ({ xy: [x, y], first, active }) => {
+      if (!modelRef.current || !active || !isPlaced) return;
+      
+      if (first) {
+        console.log('Drag started');
+      }
+      
+      // マウス位置から3D空間の位置を計算してモデル移動
+      updateModelPosition(x, y);
+    },
+    
+    onPinch: ({ da: [distance, angle], first, memo }) => {
+      if (!modelRef.current || !isPlaced) return;
+      
+      if (first) {
+        console.log('2-finger rotation started');
+        return { 
+          initialRotation: rotationY,
+          initialAngle: angle
+        };
+      }
+      
+      // 2本指の回転でモデルを水平回転のみ
+      const angleDiff = angle - (memo?.initialAngle || 0);
+      const angleInRadians = (angleDiff * Math.PI) / 180;
+      const newRotationY = (memo?.initialRotation || rotationY) + angleInRadians;
+      setRotationY(newRotationY);
+      modelRef.current.rotation.y = newRotationY;
+      
+      console.log('Rotation:', Math.round((newRotationY * 180) / Math.PI), '°');
+      
+      return memo;
+    },
+    
+    onWheel: ({ delta: [deltaX, deltaY], shiftKey }) => {
+      if (!modelRef.current || !isPlaced) return;
+      
+      if (shiftKey) {
+        // Shift+スクロールで水平回転
+        const rotationChange = deltaY * 0.01;
+        const newRotationY = rotationY + rotationChange;
+        setRotationY(newRotationY);
+        modelRef.current.rotation.y = newRotationY;
+        console.log('Shift+Scroll Rotation:', Math.round((newRotationY * 180) / Math.PI), '°');
+      } else {
+        // 通常のホイールでスケール調整
+        const scaleChange = 1 - deltaY * 0.001;
+        const newScale = Math.max(0.5, Math.min(10.0, modelScale * scaleChange));
+        setModelScale(newScale);
+        modelRef.current.scale.setScalar(newScale);
+      }
+    }
+  }, {
+    pinch: {
+      scaleBounds: { min: 0.1, max: 5 },
+      rubberband: true
+    }
+  });
+
+  useEffect(() => {
+    if (!isARActive) return;
+
+    // Three.jsのセットアップ
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // シーン作成
+    const scene = new THREE.Scene();
+    sceneRef.current = scene;
+
+    // Zapparカメラ作成
+    const camera = new ZapparThree.Camera();
+    cameraRef.current = camera;
+
+    // レンダラー作成
+    const renderer = new THREE.WebGLRenderer({ 
+      alpha: true,
+      antialias: true,
+      preserveDrawingBuffer: true 
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    rendererRef.current = renderer;
+
+    if (mountRef.current) {
+      mountRef.current.appendChild(renderer.domElement);
+    }
+
+    // ZapparカメラのWebGLコンテキスト設定
+    ZapparThree.glContextSet(renderer.getContext());
+
+    // カメラソース（ユーザーのカメラ）
+    const source = new ZapparThree.CameraSource();
+
+    // Instant World Tracker作成
+    const tracker = new ZapparThree.InstantWorldTracker();
+    trackerRef.current = tracker;
+    tracker.setCamera(camera);
+
+    // アンカーグループ（トラッカーに追従）
+    const anchorGroup = new THREE.Group();
+    anchorGroupRef.current = anchorGroup;
+    anchorGroup.position.setFromMatrixPosition(tracker.anchor.matrixWorld);
+    scene.add(anchorGroup);
+
+    // ライト追加（明るさを改善）
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    directionalLight.position.set(5, 10, 5);
+    scene.add(directionalLight);
+    
+    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight2.position.set(-5, 5, -5);
+    scene.add(directionalLight2);
+    
+    const pointLight = new THREE.PointLight(0xffffff, 1.0, 100);
+    pointLight.position.set(0, 3, 0);
+    anchorGroup.add(pointLight);
+
+    // カメラ開始
+    source.start();
+
+    // 平面配置ボタンのクリックイベント
+    const placeModel = () => {
+      if (isPlaced) return;
+      
+      // GLBモデルを読み込んで配置
+      const loader = new GLTFLoader();
+      loader.load(
+        '/coicoi.glb',
+        (gltf) => {
+          const model = gltf.scene.clone();
+          
+          model.scale.setScalar(2.4);
+          model.position.set(0, 0.1, 0);
+          model.rotation.y = -100 * Math.PI / 180;
+          
+          // ふわふわアニメーション用のデータを設定
+          (model as any).floatData = {
+            baseY: 0.1,
+            amplitude: 0.3,
+            speed: 0.02,
+            time: 0
+          };
+          
+          (model as any).isCoicoiModel = true;
+          modelRef.current = model;
+          
+          anchorGroup.add(model);
+          setIsPlaced(true);
+          
+          // トラッキングを有効化
+          tracker.enabled = true;
+        },
+        (progress) => {
+          console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
+        },
+        (error) => {
+          console.error('Error loading GLB model:', error);
+        }
+      );
+    };
+
+    // タップで配置（初回のみ）
+    const handleTap = (event: MouseEvent | TouchEvent) => {
+      if (!isPlaced) {
+        placeModel();
+      }
+    };
+
+    renderer.domElement.addEventListener('click', handleTap);
+    renderer.domElement.addEventListener('touchend', handleTap);
+
+    // アニメーションループ
+    const animate = () => {
+      frameRef.current = requestAnimationFrame(animate);
+
+      // カメラとトラッカーの更新
+      camera.updateFrame(renderer);
+      
+      if (tracker.enabled && anchorGroupRef.current) {
+        anchorGroupRef.current.position.setFromMatrixPosition(tracker.anchor.matrixWorld);
+        anchorGroupRef.current.rotation.setFromRotationMatrix(tracker.anchor.matrixWorld);
+      }
+
+      // ふわふわアニメーション
+      if (modelRef.current && (modelRef.current as any).floatData) {
+        const data = (modelRef.current as any).floatData;
+        data.time += data.speed;
+        modelRef.current.position.y = data.baseY + Math.sin(data.time) * data.amplitude;
+      }
+
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    // リサイズハンドラー
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      renderer.setSize(width, height);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      renderer.domElement.removeEventListener('click', handleTap);
+      renderer.domElement.removeEventListener('touchend', handleTap);
+      
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+      }
+      if (mountRef.current && renderer.domElement) {
+        mountRef.current.removeChild(renderer.domElement);
+      }
+      renderer.dispose();
+      source.destroy();
+    };
+  }, [isARActive]);
+
+  // 矢印ボタンによるモデル移動
+  const moveModelUp = () => {
+    if (modelRef.current && isPlaced) {
+      modelRef.current.position.y += 0.2;
+      if ((modelRef.current as any).floatData) {
+        (modelRef.current as any).floatData.baseY += 0.2;
+      }
+    }
+  };
+
+  const moveModelDown = () => {
+    if (modelRef.current && isPlaced) {
+      modelRef.current.position.y -= 0.2;
+      if ((modelRef.current as any).floatData) {
+        (modelRef.current as any).floatData.baseY -= 0.2;
+      }
+    }
+  };
+
+  const moveModelLeft = () => {
+    if (modelRef.current && isPlaced) {
+      modelRef.current.position.x -= 0.3;
+    }
+  };
+
+  const moveModelRight = () => {
+    if (modelRef.current && isPlaced) {
+      modelRef.current.position.x += 0.3;
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!rendererRef.current) return;
+
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 150);
+
+    const canvas = rendererRef.current.domElement;
+    const imageData = canvas.toDataURL('image/png');
+
+    const link = document.createElement('a');
+    link.download = `ar-photo-${Date.now()}.png`;
+    link.href = imageData;
+    link.click();
+  };
+
+  const startAR = () => {
+    setIsARActive(true);
+  };
+
+  return (
+    <div className="relative w-full h-screen overflow-hidden bg-black touch-none">
+      {!isARActive ? (
+        <div 
+          onClick={startAR}
+          className="flex items-center justify-center h-full cursor-pointer bg-gradient-to-br from-gray-900 to-black"
+        >
+          <div className="text-center">
+            <div className="w-32 h-32 mx-auto mb-6 bg-gray-600 bg-opacity-30 rounded-full flex items-center justify-center backdrop-blur-sm transition-transform hover:scale-110">
+              <Camera className="w-16 h-16 text-white" />
+            </div>
+            <p className="text-white text-lg font-light">タップして開始</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Three.js/Zapparレンダリングエリア */}
+          <div 
+            ref={mountRef} 
+            {...bind()}
+            className="absolute top-0 left-0 w-full h-full touch-none"
+            style={{ touchAction: 'none' }}
+          />
+          
+          {/* 配置指示（モデル未配置時） */}
+          {!isPlaced && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-lg">
+              <div className="text-sm text-center">画面をタップして配置</div>
+            </div>
+          )}
+
+          {/* コンパクトなモデル制御UI */}
+          {isPlaced && (
+            <div className="absolute top-4 right-4 flex flex-col space-y-2">
+              
+              {/* ジョイスティック風の位置制御 */}
+              <div className="w-20 h-20 bg-black bg-opacity-80 rounded-full flex items-center justify-center backdrop-blur-sm border border-gray-500">
+                <div className="relative w-16 h-16">
+                  {/* 中央の円 */}
+                  <div className="absolute top-1/2 left-1/2 w-3 h-3 bg-white rounded-full transform -translate-x-1/2 -translate-y-1/2 opacity-50"></div>
+                  
+                  {/* 上矢印 */}
+                  <button
+                    type="button"
+                    onClick={moveModelUp}
+                    className="absolute top-0 left-1/2 w-6 h-6 bg-blue-500 bg-opacity-80 rounded-full flex items-center justify-center transform -translate-x-1/2 hover:bg-opacity-100 transition-all"
+                    title="上に移動"
+                  >
+                    <ArrowUp className="w-3 h-3 text-white" />
+                  </button>
+                  
+                  {/* 下矢印 */}
+                  <button
+                    type="button"
+                    onClick={moveModelDown}
+                    className="absolute bottom-0 left-1/2 w-6 h-6 bg-red-500 bg-opacity-80 rounded-full flex items-center justify-center transform -translate-x-1/2 hover:bg-opacity-100 transition-all"
+                    title="下に移動"
+                  >
+                    <ArrowDown className="w-3 h-3 text-white" />
+                  </button>
+                  
+                  {/* 左矢印 */}
+                  <button
+                    type="button"
+                    onClick={moveModelLeft}
+                    className="absolute left-0 top-1/2 w-6 h-6 bg-green-500 bg-opacity-80 rounded-full flex items-center justify-center transform -translate-y-1/2 hover:bg-opacity-100 transition-all"
+                    title="左に移動"
+                  >
+                    <ArrowLeft className="w-3 h-3 text-white" />
+                  </button>
+                  
+                  {/* 右矢印 */}
+                  <button
+                    type="button"
+                    onClick={moveModelRight}
+                    className="absolute right-0 top-1/2 w-6 h-6 bg-purple-500 bg-opacity-80 rounded-full flex items-center justify-center transform -translate-y-1/2 hover:bg-opacity-100 transition-all"
+                    title="右に移動"
+                  >
+                    <ArrowRight className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* サイズ制御 - 小さなスライダー */}
+              <div className="w-20 h-8 bg-black bg-opacity-80 rounded-full flex items-center justify-center backdrop-blur-sm border border-gray-500 px-2">
+                <input
+                  type="range"
+                  min={0.5}
+                  max={10.0}
+                  step={0.2}
+                  value={modelScale}
+                  onChange={(e) => {
+                    const newScale = parseFloat(e.target.value);
+                    setModelScale(newScale);
+                    if (modelRef.current) {
+                      modelRef.current.scale.setScalar(newScale);
+                    }
+                  }}
+                  className="w-full h-1 bg-gray-600 rounded appearance-none cursor-pointer"
+                  title="サイズ調整"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* カメラボタン - 画面下から15%の位置 */}
+          <div className="absolute left-1/2 transform -translate-x-1/2" style={{ bottom: '15%' }}>
+            <button
+              type="button"
+              onClick={capturePhoto}
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-gray-600 bg-opacity-70 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-gray-400 shadow-xl transition-all hover:scale-110 active:scale-95"
+              title="写真を撮影"
+            >
+              <Camera className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 text-white drop-shadow-lg" />
+            </button>
+          </div>
+
+          {/* フラッシュエフェクト */}
+          {showFlash && (
+            <div className="absolute inset-0 bg-white pointer-events-none animate-pulse" />
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+export default ARZapparTracking;
