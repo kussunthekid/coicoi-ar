@@ -149,16 +149,12 @@ const ARZapparTrackingFixed = () => {
         scene.background = new THREE.Color(0x000000); // 背景を黒に設定
         sceneRef.current = scene;
 
-        // カメラ作成（平行投影のOrthographicCamera）
-        const frustumSize = 10;
-        const aspect = width / height;
-        const camera = new THREE.OrthographicCamera(
-          frustumSize * aspect / -2,  // left
-          frustumSize * aspect / 2,   // right
-          frustumSize / 2,            // top
-          frustumSize / -2,           // bottom
-          0.1,                        // near
-          1000                        // far
+        // カメラ作成（PerspectiveCameraに戻す）
+        const camera = new THREE.PerspectiveCamera(
+          75,     // 視野角
+          width / height, // アスペクト比
+          0.01,   // ニアクリップ（より小さく）
+          100     // ファークリップ（適切な範囲に）
         );
         camera.position.set(0, 2, 5);
         camera.lookAt(0, 0, 0);
@@ -168,10 +164,12 @@ const ARZapparTrackingFixed = () => {
         const renderer = new THREE.WebGLRenderer({ 
           alpha: true,
           antialias: true,
-          preserveDrawingBuffer: true 
+          preserveDrawingBuffer: true,
+          logarithmicDepthBuffer: true // 深度バッファの精度を向上
         });
         renderer.setSize(width, height);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputColorSpace = THREE.SRGBColorSpace; // 色空間を設定
         rendererRef.current = renderer;
 
         if (mountRef.current) {
@@ -289,7 +287,7 @@ const ARZapparTrackingFixed = () => {
             });
             
             model.scale.setScalar(0.83); // サイズを1/3に
-            model.position.set(0, 0, -3); // 画面中央に配置（Y座標を0に）
+            model.position.set(0, 0, 0); // 原点に配置
             model.rotation.y = 0; // 0度（正面向き）
             
             // ふわふわアニメーション用のデータを設定
@@ -317,7 +315,7 @@ const ARZapparTrackingFixed = () => {
             });
             
             const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(0, -1, -3);
+            cube.position.set(0, 0, 0);
             
             modelRef.current = cube;
             anchorGroup.add(cube);
@@ -387,14 +385,9 @@ const ARZapparTrackingFixed = () => {
         const handleResize = () => {
           const width = window.innerWidth;
           const height = window.innerHeight;
-          const aspect = width / height;
-          const frustumSize = 10;
           
-          // OrthographicCameraのアスペクト比を更新
-          camera.left = frustumSize * aspect / -2;
-          camera.right = frustumSize * aspect / 2;
-          camera.top = frustumSize / 2;
-          camera.bottom = frustumSize / -2;
+          // PerspectiveCameraのアスペクト比を更新
+          camera.aspect = width / height;
           camera.updateProjectionMatrix();
           
           renderer.setSize(width, height);
