@@ -1,20 +1,19 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-
-// ARコンポーネントを動的インポート（SSRを回避）
-const ARPlaneDetectionApp = dynamic(
-  () => import('../components/ARZapparTrackingFixed'),
-  { 
-    ssr: false,
-    loading: () => <div className="flex items-center justify-center min-h-screen">ARアプリを読み込み中...</div>
-  }
-);
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // ホームページにアクセスしたら自動的にスタートページにリダイレクト
+    router.push('/start');
+  }, [router]);
+
   return (
-    <div className="w-full h-screen">
-      <ARPlaneDetectionApp />
+    <div className="flex items-center justify-center min-h-screen">
+      <p>リダイレクト中...</p>
     </div>
   );
 }
