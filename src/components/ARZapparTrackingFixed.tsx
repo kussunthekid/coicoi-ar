@@ -31,7 +31,6 @@ const ARZapparTrackingFixed = () => {
   const anchorGroupRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
   const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
-  const sparkleSystemRef = useRef<THREE.Points | null>(null);
 
   // マウス座標を正規化してレイキャスティングで3D位置を計算
   const updateModelPosition = (clientX: number, clientY: number) => {
@@ -269,103 +268,6 @@ const ARZapparTrackingFixed = () => {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap; // ソフトな影
 
-        // キラキラパーティクルシステムを作成
-        const createSparkleSystem = () => {
-          const particleCount = 50; // パーティクル数を減らして見やすく
-          const positions = new Float32Array(particleCount * 3);
-          const colors = new Float32Array(particleCount * 3);
-          const sizes = new Float32Array(particleCount);
-          
-          // パーティクルの初期位置とプロパティを設定
-          for (let i = 0; i < particleCount; i++) {
-            const i3 = i * 3;
-            
-            // モデル周辺にランダムに配置（球状、より近く）
-            const radius = 1.5 + Math.random() * 1.5; // 半径1.5-3の範囲
-            const theta = Math.random() * Math.PI * 2; // 水平角度
-            const phi = Math.random() * Math.PI; // 垂直角度
-            
-            positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-            positions[i3 + 1] = radius * Math.cos(phi);
-            positions[i3 + 2] = radius * Math.sin(phi) * Math.sin(theta) - 3;
-            
-            // より明るい色設定
-            colors[i3] = 1.0;     // 赤成分
-            colors[i3 + 1] = 1.0; // 緑成分
-            colors[i3 + 2] = 0.8; // 青成分（少し黄色っぽく）
-            
-            sizes[i] = Math.random() * 0.5 + 0.3; // サイズ 0.3-0.8（大きく）
-          }
-          
-          const geometry = new THREE.BufferGeometry();
-          geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-          geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-          geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-          
-          // シンプルで見やすいマテリアル
-          const material = new THREE.ShaderMaterial({
-            uniforms: {
-              time: { value: 0 }
-            },
-            vertexShader: `
-              attribute float size;
-              attribute vec3 color;
-              varying vec3 vColor;
-              varying float vAlpha;
-              uniform float time;
-              
-              void main() {
-                vColor = color;
-                
-                // ゆっくりとした点滅（より見やすく）
-                float twinkle = sin(time * 3.0 + position.x * 2.0 + position.y * 1.5) * 0.3 + 0.7;
-                vAlpha = twinkle;
-                
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * 500.0 / -mvPosition.z; // サイズを大きく
-                gl_Position = projectionMatrix * mvPosition;
-              }
-            `,
-            fragmentShader: `
-              varying vec3 vColor;
-              varying float vAlpha;
-              
-              void main() {
-                // シンプルな円形
-                vec2 coord = gl_PointCoord - vec2(0.5);
-                float dist = length(coord);
-                
-                // 中心から外側に向かってなめらかに減衰
-                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                
-                // 十字の光線効果
-                float cross = max(
-                  1.0 - abs(coord.x * 2.0 - 1.0) * 3.0,
-                  1.0 - abs(coord.y * 2.0 - 1.0) * 3.0
-                ) * 0.8;
-                
-                float finalAlpha = max(alpha, cross) * vAlpha;
-                
-                gl_FragColor = vec4(vColor, finalAlpha);
-              }
-            `,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            depthTest: false,
-            vertexColors: true
-          });
-          
-          const sparkleSystem = new THREE.Points(geometry, material);
-          sparkleSystemRef.current = sparkleSystem;
-          scene.add(sparkleSystem);
-          
-          return sparkleSystem;
-        };
-        
-        // キラキラシステムを作成
-        createSparkleSystem();
-
         setZapparLoaded(true);
         console.log('Basic AR initialized successfully');
 
@@ -458,7 +360,6 @@ const ARZapparTrackingFixed = () => {
             rendererRef.current = null;
             modelRef.current = null;
             anchorGroupRef.current = null;
-            sparkleSystemRef.current = null;
           } else {
             setLastTapTime(currentTime);
           }
@@ -476,22 +377,6 @@ const ARZapparTrackingFixed = () => {
             const data = (modelRef.current as any).floatData;
             data.time += data.speed;
             modelRef.current.position.y = data.baseY + Math.sin(data.time) * data.amplitude;
-          }
-
-          // キラキラパーティクルのアニメーション
-          if (sparkleSystemRef.current) {
-            const time = Date.now() * 0.001;
-            
-            // Uniformを更新（点滅効果）
-            (sparkleSystemRef.current.material as any).uniforms.time.value = time;
-            
-            // パーティクルをゆっくり回転させる
-            sparkleSystemRef.current.rotation.y = time * 0.2;
-            
-            // モデルの位置に追従
-            if (modelRef.current) {
-              sparkleSystemRef.current.position.copy(modelRef.current.position);
-            }
           }
 
           renderer.render(scene, camera);
