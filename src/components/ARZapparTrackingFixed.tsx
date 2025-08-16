@@ -271,18 +271,17 @@ const ARZapparTrackingFixed = () => {
 
         // キラキラパーティクルシステムを作成
         const createSparkleSystem = () => {
-          const particleCount = 100;
+          const particleCount = 50; // パーティクル数を減らして見やすく
           const positions = new Float32Array(particleCount * 3);
           const colors = new Float32Array(particleCount * 3);
           const sizes = new Float32Array(particleCount);
-          const alphas = new Float32Array(particleCount);
           
           // パーティクルの初期位置とプロパティを設定
           for (let i = 0; i < particleCount; i++) {
             const i3 = i * 3;
             
-            // モデル周辺にランダムに配置（球状）
-            const radius = 3 + Math.random() * 2; // 半径3-5の範囲
+            // モデル周辺にランダムに配置（球状、より近く）
+            const radius = 1.5 + Math.random() * 1.5; // 半径1.5-3の範囲
             const theta = Math.random() * Math.PI * 2; // 水平角度
             const phi = Math.random() * Math.PI; // 垂直角度
             
@@ -290,36 +289,26 @@ const ARZapparTrackingFixed = () => {
             positions[i3 + 1] = radius * Math.cos(phi);
             positions[i3 + 2] = radius * Math.sin(phi) * Math.sin(theta) - 3;
             
-            // キラキラ色（白、黄色、ピンク、青）
-            const colorType = Math.random();
-            if (colorType < 0.4) {
-              colors[i3] = 1.0; colors[i3 + 1] = 1.0; colors[i3 + 2] = 1.0; // 白
-            } else if (colorType < 0.6) {
-              colors[i3] = 1.0; colors[i3 + 1] = 1.0; colors[i3 + 2] = 0.3; // 黄色
-            } else if (colorType < 0.8) {
-              colors[i3] = 1.0; colors[i3 + 1] = 0.5; colors[i3 + 2] = 0.8; // ピンク
-            } else {
-              colors[i3] = 0.5; colors[i3 + 1] = 0.8; colors[i3 + 2] = 1.0; // 青
-            }
+            // より明るい色設定
+            colors[i3] = 1.0;     // 赤成分
+            colors[i3 + 1] = 1.0; // 緑成分
+            colors[i3 + 2] = 0.8; // 青成分（少し黄色っぽく）
             
-            sizes[i] = Math.random() * 0.3 + 0.1; // サイズ 0.1-0.4
-            alphas[i] = Math.random(); // 透明度
+            sizes[i] = Math.random() * 0.5 + 0.3; // サイズ 0.3-0.8（大きく）
           }
           
           const geometry = new THREE.BufferGeometry();
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
           geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
           geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-          geometry.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
           
-          // カスタムマテリアル（星形のテクスチャ）
+          // シンプルで見やすいマテリアル
           const material = new THREE.ShaderMaterial({
             uniforms: {
               time: { value: 0 }
             },
             vertexShader: `
               attribute float size;
-              attribute float alpha;
               attribute vec3 color;
               varying vec3 vColor;
               varying float vAlpha;
@@ -328,12 +317,12 @@ const ARZapparTrackingFixed = () => {
               void main() {
                 vColor = color;
                 
-                // 時間で点滅させる
-                float twinkle = sin(time * 10.0 + position.x * 5.0 + position.y * 3.0) * 0.5 + 0.5;
-                vAlpha = alpha * twinkle;
+                // ゆっくりとした点滅（より見やすく）
+                float twinkle = sin(time * 3.0 + position.x * 2.0 + position.y * 1.5) * 0.3 + 0.7;
+                vAlpha = twinkle;
                 
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * 300.0 / -mvPosition.z;
+                gl_PointSize = size * 500.0 / -mvPosition.z; // サイズを大きく
                 gl_Position = projectionMatrix * mvPosition;
               }
             `,
@@ -342,27 +331,28 @@ const ARZapparTrackingFixed = () => {
               varying float vAlpha;
               
               void main() {
-                // 星形を作成
+                // シンプルな円形
                 vec2 coord = gl_PointCoord - vec2(0.5);
                 float dist = length(coord);
                 
-                // 星の形状（中心が明るく、端に向かって暗くなる）
-                float star = 1.0 - smoothstep(0.0, 0.5, dist);
+                // 中心から外側に向かってなめらかに減衰
+                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
                 
-                // キラキラ効果（十字の光線）
+                // 十字の光線効果
                 float cross = max(
-                  1.0 - abs(coord.x) * 8.0,
-                  1.0 - abs(coord.y) * 8.0
-                ) * 0.5;
+                  1.0 - abs(coord.x * 2.0 - 1.0) * 3.0,
+                  1.0 - abs(coord.y * 2.0 - 1.0) * 3.0
+                ) * 0.8;
                 
-                float brightness = max(star, cross);
+                float finalAlpha = max(alpha, cross) * vAlpha;
                 
-                gl_FragColor = vec4(vColor * brightness, vAlpha * brightness);
+                gl_FragColor = vec4(vColor, finalAlpha);
               }
             `,
             transparent: true,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
+            depthTest: false,
             vertexColors: true
           });
           
