@@ -239,12 +239,12 @@ const ARZapparTrackingFixed = () => {
 
         // ライト追加（複数の光源で見栄えを改善）
         
-        // 1. 環境光源（AmbientLight）- ベースとなる光源（明るめ）
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); // さらに明るく
+        // 1. 環境光源（AmbientLight）- セルルック用に少し抑えめ
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // セルルック用に調整
         scene.add(ambientLight);
         
-        // 2. 平行光源（DirectionalLight）- メインの光源、太陽光のようなイメージ（明るく）
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8); // さらに明るく
+        // 2. 平行光源（DirectionalLight）- セルルック用に調整
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // セルルック用に光量調整
         directionalLight.position.set(5, 10, 5);
         directionalLight.castShadow = true; // 影を有効化
         directionalLight.shadow.camera.near = 0.1;
@@ -280,13 +280,39 @@ const ARZapparTrackingFixed = () => {
           (gltf) => {
             const model = gltf.scene.clone();
             
-            // モデルの元の色とテクスチャを保持（白色への変更を削除）
+            // セルルック（トゥーンシェーディング）の適用
+            const threeTone = new THREE.DataTexture(
+              new Uint8Array([0, 0, 0, 128, 128, 128, 255, 255, 255]),
+              3,
+              1,
+              THREE.RGBFormat
+            );
+            threeTone.needsUpdate = true;
             
-            // 影の設定を有効化
+            // 影の設定を有効化とトゥーンマテリアルの適用
             model.traverse((child) => {
               if ((child as any).isMesh) {
-                (child as any).castShadow = true;
-                (child as any).receiveShadow = true;
+                const mesh = child as any;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                
+                // 元のマテリアルの色を保持しつつトゥーンシェーディングを適用
+                if (mesh.material) {
+                  const originalMaterial = mesh.material;
+                  const toonMaterial = new THREE.MeshToonMaterial({
+                    color: originalMaterial.color || new THREE.Color(0xffffff),
+                    gradientMap: threeTone,
+                    emissive: originalMaterial.emissive || new THREE.Color(0x000000),
+                    emissiveIntensity: 0.1
+                  });
+                  
+                  // テクスチャがある場合は適用
+                  if (originalMaterial.map) {
+                    toonMaterial.map = originalMaterial.map;
+                  }
+                  
+                  mesh.material = toonMaterial;
+                }
               }
             });
             
