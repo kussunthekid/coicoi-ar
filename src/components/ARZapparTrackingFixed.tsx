@@ -149,12 +149,16 @@ const ARZapparTrackingFixed = () => {
         scene.background = new THREE.Color(0x000000); // 背景を黒に設定
         sceneRef.current = scene;
 
-        // カメラ作成（PerspectiveCameraに戻す）
-        const camera = new THREE.PerspectiveCamera(
-          75,     // 視野角
-          width / height, // アスペクト比
-          0.01,   // ニアクリップ（より小さく）
-          100     // ファークリップ（適切な範囲に）
+        // カメラ作成（平行投影のOrthographicCamera）
+        const frustumSize = 10;
+        const aspect = width / height;
+        const camera = new THREE.OrthographicCamera(
+          frustumSize * aspect / -2,  // left
+          frustumSize * aspect / 2,   // right
+          frustumSize / 2,            // top
+          frustumSize / -2,           // bottom
+          -100,                       // near（負の値で前方も表示）
+          100                         // far
         );
         camera.position.set(0, 2, 5);
         camera.lookAt(0, 0, 0);
@@ -385,9 +389,14 @@ const ARZapparTrackingFixed = () => {
         const handleResize = () => {
           const width = window.innerWidth;
           const height = window.innerHeight;
+          const aspect = width / height;
+          const frustumSize = 10;
           
-          // PerspectiveCameraのアスペクト比を更新
-          camera.aspect = width / height;
+          // OrthographicCameraのアスペクト比を更新
+          camera.left = frustumSize * aspect / -2;
+          camera.right = frustumSize * aspect / 2;
+          camera.top = frustumSize / 2;
+          camera.bottom = frustumSize / -2;
           camera.updateProjectionMatrix();
           
           renderer.setSize(width, height);
