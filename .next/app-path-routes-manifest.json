@@ -2,6 +2,6 @@
   "/favicon.ico/route": "/favicon.ico",
   "/_not-found/page": "/_not-found",
   "/page": "/",
-  "/start/page": "/start",
-  "/ar/page": "/ar"
+  "/ar/page": "/ar",
+  "/start/page": "/start"
 }

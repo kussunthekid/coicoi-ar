@@ -27,6 +27,7 @@ const ARZapparTrackingFixed = () => {
   const [rotationY, setRotationY] = useState(0); // 初期回転を0度に設定
   const [rotationX, setRotationX] = useState(0);
   const [modelScale, setModelScale] = useState(0.83); // サイズを1/3に（2.5 ÷ 3 ≈ 0.83）
+  const [currentModel, setCurrentModel] = useState<'coicoi' | 'wkwk'>('coicoi'); // モデル選択
   const modelRef = useRef<THREE.Object3D | null>(null);
   const anchorGroupRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
@@ -275,8 +276,9 @@ const ARZapparTrackingFixed = () => {
 
         // 3Dモデルを自動で配置
         const loader = new GLTFLoader();
+        const modelPath = currentModel === 'coicoi' ? '/coicoi.glb' : '/wkwk.glb';
         loader.load(
-          '/coicoi.glb',
+          modelPath,
           (gltf) => {
             const model = gltf.scene.clone();
             
@@ -610,6 +612,29 @@ const ARZapparTrackingFixed = () => {
               }}
             >
               <SwitchCamera className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" />
+            </button>
+          )}
+
+          {/* モデル切り替えボタン（右上・カメラボタンの下） */}
+          {zapparLoaded && (
+            <button
+              type="button"
+              onClick={() => {
+                const newModel = currentModel === 'coicoi' ? 'wkwk' : 'coicoi';
+                setCurrentModel(newModel);
+                // ページをリロードしてモデルを切り替え
+                window.location.reload();
+              }}
+              className="absolute top-20 right-4 w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl transition-all hover:scale-110 active:scale-95"
+              title={`${currentModel === 'coicoi' ? 'wkwk' : 'coicoi'}モデルに切り替え`}
+              style={{
+                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(16, 185, 129, 0.2))',
+                boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+              }}
+            >
+              <div className="text-white text-xs font-bold">
+                {currentModel === 'coicoi' ? 'W' : 'C'}
+              </div>
             </button>
           )}
 

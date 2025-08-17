@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST='{"app/ar/page.tsx -> ../../components/ARZapparTrackingFixed":{"id":3626,"files":["static/chunks/b536a0f1.4232d88a580f66ee.js","static/chunks/bd904a5c.adb899d3509450e6.js","static/chunks/667.905bed26ca19182c.js","static/chunks/626.517e7bb22ebb210f.js"]}}';
+self.__REACT_LOADABLE_MANIFEST='{"app/ar/page.tsx -> ../../components/ARZapparTrackingFixed":{"id":3626,"files":["static/chunks/b536a0f1.4232d88a580f66ee.js","static/chunks/bd904a5c.adb899d3509450e6.js","static/chunks/667.905bed26ca19182c.js","static/chunks/626.3d8c0f817d7aca37.js"]}}';
