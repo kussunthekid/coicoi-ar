@@ -58,6 +58,12 @@
       "namedRegex": "^/favicon\\.ico(?:/)?$"
     },
     {
+      "page": "/hands",
+      "regex": "^/hands(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hands(?:/)?$"
+    },
+    {
       "page": "/start",
       "regex": "^/start(?:/)?$",
       "routeKeys": {},

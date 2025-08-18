@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
-import { Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, GripVertical, SwitchCamera } from 'lucide-react';
+import { Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, GripVertical, RotateCcw } from 'lucide-react';
 import { useGesture } from '@use-gesture/react';
 
 const ARZapparTrackingFixed = () => {
@@ -18,8 +18,6 @@ const ARZapparTrackingFixed = () => {
   const [lastTapTime, setLastTapTime] = useState(0);
   const doubleTapDelay = 300; // 300ms以内のタップをダブルタップとみなす
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
-  const videoStreamRef = useRef<MediaStream | null>(null);
-  const videoElementRef = useRef<HTMLVideoElement | null>(null);
   
   // コントロールパネルの位置状態（初期位置をカメラボタンの右横に設定）
   const [panelPosition, setPanelPosition] = useState({ x: 0, y: 0 });
@@ -279,7 +277,7 @@ const ARZapparTrackingFixed = () => {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
-              facingMode: 'environment', // 初回は常にアウトカメラを使用
+              facingMode: facingMode,
               width: { ideal: 1920 },
               height: { ideal: 1080 }
             },
@@ -314,9 +312,6 @@ const ARZapparTrackingFixed = () => {
             video.addEventListener('loadedmetadata', setVideoTexture);
           }
           
-          // グローバル参照を保存
-          videoStreamRef.current = stream;
-          videoElementRef.current = video;
           
           // クリーンアップ用にvideoとstreamを保存
           (renderer as any).videoElement = video;
@@ -565,26 +560,59 @@ const ARZapparTrackingFixed = () => {
           
           if (frameRef.current) {
             cancelAnimationFrame(frameRef.current);
+            frameRef.current = null;
           }
           
-          // ビデオとストリームのクリーンアップ
+          // ビデオとストリームのクリーンアップ（より徹底的に）
           if ((renderer as any).videoElement) {
             const video = (renderer as any).videoElement;
             video.pause();
             video.srcObject = null;
+            video.load(); // 強制的にリセット
             if (video.parentNode) {
               video.parentNode.removeChild(video);
             }
+            (renderer as any).videoElement = null;
           }
           if ((renderer as any).videoStream) {
             const stream = (renderer as any).videoStream;
-            stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+            stream.getTracks().forEach((track: MediaStreamTrack) => {
+              track.stop();
+              track.enabled = false;
+            });
+            (renderer as any).videoStream = null;
+          }
+          
+          // Three.jsのリソースをクリーンアップ
+          if (scene) {
+            scene.traverse((object) => {
+              if ((object as any).geometry) {
+                (object as any).geometry.dispose();
+              }
+              if ((object as any).material) {
+                if (Array.isArray((object as any).material)) {
+                  (object as any).material.forEach((material: any) => material.dispose());
+                } else {
+                  (object as any).material.dispose();
+                }
+              }
+            });
+            scene.clear();
           }
           
           if (mountRef.current && renderer.domElement) {
             mountRef.current.removeChild(renderer.domElement);
           }
           renderer.dispose();
+          
+          // 参照をクリア
+          sceneRef.current = null;
+          cameraRef.current = null;
+          rendererRef.current = null;
+          anchorGroupRef.current = null;
+          coicoiModelRef.current = null;
+          wkwkModelRef.current = null;
+          modelRef.current = null;
         };
 
       } catch (error) {
@@ -595,53 +623,8 @@ const ARZapparTrackingFixed = () => {
     };
 
     initBasicAR();
-  }, [isARActive]); // facingModeを依存配列から除外（初回のみ実行）
+  }, [isARActive]); // facingModeを依存配列から除外
 
-  // カメラの切り替え関数
-  const switchCamera = async () => {
-    if (!videoStreamRef.current || !videoElementRef.current) return;
-    
-    try {
-      console.log('Switching camera from', facingMode);
-      
-      // 現在のストリームを停止
-      videoStreamRef.current.getTracks().forEach(track => track.stop());
-      
-      const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
-      
-      // 新しいストリームを取得（exactを使用）
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { exact: newFacingMode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
-        audio: false
-      });
-      
-      // ビデオ要素を更新
-      const video = videoElementRef.current;
-      video.srcObject = stream;
-      await video.play();
-      
-      // Three.jsのテクスチャを更新
-      if (sceneRef.current) {
-        const videoTexture = new THREE.VideoTexture(video);
-        videoTexture.minFilter = THREE.LinearFilter;
-        videoTexture.magFilter = THREE.LinearFilter;
-        videoTexture.needsUpdate = true;
-        sceneRef.current.background = videoTexture;
-      }
-      
-      // 新しいストリームを保存
-      videoStreamRef.current = stream;
-      setFacingMode(newFacingMode);
-      
-      console.log(`Camera switched to ${newFacingMode} mode`);
-    } catch (error) {
-      console.error('Failed to switch camera:', error);
-    }
-  };
 
   // 矢印ボタンによるモデル移動
   const moveModelUp = () => {
@@ -695,6 +678,50 @@ const ARZapparTrackingFixed = () => {
 
   const startAR = () => {
     setIsARActive(true);
+  };
+
+  const switchCamera = async () => {
+    const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
+    
+    try {
+      // 現在のビデオストリームを停止
+      if (rendererRef.current && (rendererRef.current as any).videoStream) {
+        const currentStream = (rendererRef.current as any).videoStream;
+        currentStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      }
+
+      // 新しいストリームを取得
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: newFacingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      });
+
+      // 新しいビデオテクスチャを設定
+      if (rendererRef.current && (rendererRef.current as any).videoElement && sceneRef.current) {
+        const video = (rendererRef.current as any).videoElement;
+        video.srcObject = newStream;
+        await video.play();
+
+        const videoTexture = new THREE.VideoTexture(video);
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+        videoTexture.needsUpdate = true;
+        sceneRef.current.background = videoTexture;
+
+        // 新しいストリームを保存
+        (rendererRef.current as any).videoStream = newStream;
+      }
+
+      setFacingMode(newFacingMode);
+      console.log(`Successfully switched to ${newFacingMode} camera`);
+      
+    } catch (error) {
+      console.error('Failed to switch camera:', error);
+    }
   };
 
   return (
@@ -759,26 +786,27 @@ const ARZapparTrackingFixed = () => {
             </div>
           )}
 
-          {/* カメラ切り替えボタン（右上・グラスモーフィズム） */}
+
+          {/* カメラ切り替えボタン（右上） */}
           {zapparLoaded && (
             <button
               type="button"
               onClick={switchCamera}
-              className="absolute top-4 right-4 w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl transition-all hover:scale-110 active:scale-95"
-              title={facingMode === 'environment' ? 'インカメラに切り替え' : 'アウトカメラに切り替え'}
+              className="absolute top-4 right-4 w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl transition-all hover:scale-105 active:scale-95"
+              title={`カメラ切り替え (現在: ${facingMode === 'environment' ? 'アウトカメラ' : 'インカメラ'})`}
               style={{
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.2))',
-                boxShadow: '0 8px 32px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.4), rgba(14, 165, 233, 0.2))',
+                boxShadow: '0 8px 32px rgba(56, 189, 248, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
               }}
             >
-              <SwitchCamera className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" />
+              <RotateCcw className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" />
             </button>
           )}
 
-          {/* モデル選択インジケーター（右上・カメラボタンの下） */}
+          {/* モデル選択インジケーター（カメラボタンの下） */}
           {zapparLoaded && (
             <div
-              className="absolute top-20 right-4 w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl pointer-events-none"
+              className="absolute top-20 right-4 w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl pointer-events-none"
               title={`現在選択中: ${selectedModel === 'coicoi' ? 'coicoi' : 'wkwk'}モデル`}
               style={{
                 background: selectedModel === 'coicoi' 

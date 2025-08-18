@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
-import { Camera, SwitchCamera } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { Hands, Results } from '@mediapipe/hands';
 import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 
@@ -31,8 +31,6 @@ const HandTrackingBubbles = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('user');
-  const [isSwitching, setIsSwitching] = useState(false);
   
   const bubblesRef = useRef<Bubble[]>([]);
   const wkwkModelRef = useRef<THREE.Object3D | null>(null);
@@ -250,12 +248,11 @@ const HandTrackingBubbles = () => {
         const video = videoRef.current;
         if (video) {
           console.log('=== CAMERA INITIALIZATION ===');
-          console.log('Initializing camera with facingMode:', facingMode);
           
           // 先にgetUserMediaでカメラアクセスを取得
           const stream = await navigator.mediaDevices.getUserMedia({
             video: {
-              facingMode: facingMode,
+              facingMode: 'user',
               width: { ideal: 640 }, // 解像度を下げてパフォーマンス向上
               height: { ideal: 480 }
             },
@@ -276,7 +273,7 @@ const HandTrackingBubbles = () => {
           // MediaPipeのカメラヘルパーを使用
           const mediaCamera = new MediaPipeCamera(video, {
             onFrame: async () => {
-              if (handsRef.current && !isSwitching) {
+              if (handsRef.current) {
                 await handsRef.current.send({ image: video });
               }
             },
@@ -359,7 +356,7 @@ const HandTrackingBubbles = () => {
       console.log('Triggering initHandTracking because isLoaded is false');
       initHandTracking();
     }
-  }, [isActive, isLoaded, onResults, facingMode, isSwitching]);
+  }, [isActive, isLoaded, onResults]);
 
   const capturePhoto = () => {
     if (!rendererRef.current || !videoRef.current) return;
@@ -440,109 +437,6 @@ const HandTrackingBubbles = () => {
     setIsActive(true);
   };
 
-  const switchCamera = async () => {
-    if (isSwitching || !videoRef.current || !handsRef.current) return;
-    
-    try {
-      console.log('Switching camera from', facingMode);
-      setIsSwitching(true);
-      setError('カメラを切り替え中...');
-      
-      // MediaPipe Handsインスタンスを完全に停止・破棄
-      if (handsRef.current) {
-        try {
-          await handsRef.current.close();
-        } catch (closeError) {
-          console.warn('Error closing hands:', closeError);
-        }
-        handsRef.current = null;
-      }
-      
-      // MediaPipeカメラを完全に停止
-      if (mediaPipeCameraRef.current) {
-        try {
-          await mediaPipeCameraRef.current.stop();
-        } catch (stopError) {
-          console.warn('Error stopping MediaPipe camera:', stopError);
-        }
-        mediaPipeCameraRef.current = null;
-      }
-      
-      // 現在のストリームを停止
-      if (videoStreamRef.current) {
-        videoStreamRef.current.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped track:', track.label);
-        });
-        videoStreamRef.current = null;
-      }
-      
-      // ビデオ要素のストリームをクリア
-      const video = videoRef.current;
-      video.srcObject = null;
-      
-      const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-      
-      // 新しいストリームを取得（exactを使用）
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { exact: newFacingMode },
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        },
-        audio: false
-      });
-      
-      // ビデオ要素を更新
-      video.srcObject = stream;
-      await video.play();
-      
-      // ストリームを保存
-      videoStreamRef.current = stream;
-      
-      // MediaPipe Handsを完全に再作成
-      const hands = new Hands({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }
-      });
-
-      hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 0,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.7
-      });
-
-      hands.onResults(onResults);
-      handsRef.current = hands;
-      
-      // MediaPipeカメラを再作成
-      const mediaCamera = new MediaPipeCamera(video, {
-        onFrame: async () => {
-          if (handsRef.current && !isSwitching) {
-            await handsRef.current.send({ image: video });
-          }
-        },
-        width: 640,
-        height: 480
-      });
-      
-      await mediaCamera.start();
-      mediaPipeCameraRef.current = mediaCamera;
-      
-      // 状態を更新
-      setFacingMode(newFacingMode);
-      setError(null);
-      setIsSwitching(false);
-      
-      console.log(`Camera switched to ${newFacingMode} mode`);
-    } catch (error) {
-      console.error('Camera switch error:', error);
-      setError('カメラ切り替えエラー: ' + (error as Error).message);
-      setIsSwitching(false);
-    }
-  };
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">
@@ -594,21 +488,6 @@ const HandTrackingBubbles = () => {
             </div>
           )}
 
-          {/* カメラ切り替えボタン（右上・統一デザイン） */}
-          {isLoaded && (
-            <button
-              type="button"
-              onClick={switchCamera}
-              className="absolute top-4 right-4 w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl transition-all hover:scale-110 active:scale-95"
-              title={facingMode === 'environment' ? 'インカメラに切り替え' : 'アウトカメラに切り替え'}
-              style={{
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.2))',
-                boxShadow: '0 8px 32px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
-              }}
-            >
-              <SwitchCamera className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" />
-            </button>
-          )}
 
           {/* 撮影ボタン */}
           <div className="absolute left-1/2 transform -translate-x-1/2" style={{ bottom: '10%' }}>

@@ -20,7 +20,7 @@ export default function StartPage() {
         {/* ロゴエリア */}
         <div className="mb-12">
           <h1 className="text-6xl md:text-8xl font-bold text-white mb-4 tracking-wider drop-shadow-2xl">
-            coicoi
+            COICOIフェス AR
           </h1>
           <p className="text-xl md:text-2xl text-white/90 font-light">
             ARで特別な瞬間を撮影しよう
@@ -38,7 +38,7 @@ export default function StartPage() {
               <Camera className="w-8 h-8 text-white drop-shadow-lg group-hover:rotate-12 transition-transform duration-300 flex-shrink-0" />
               <div className="text-center">
                 <p className="text-xl font-bold text-white drop-shadow-lg">
-                  coicoiと写真を撮ろう！
+                  coicoi＆wkwkと写真を撮ろう
                 </p>
                 <p className="text-sm text-white/80 mt-1">
                   タップしてARカメラを起動
@@ -60,10 +60,10 @@ export default function StartPage() {
               <Hand className="w-8 h-8 text-white drop-shadow-lg group-hover:rotate-12 transition-transform duration-300 flex-shrink-0" />
               <div className="text-center">
                 <p className="text-xl font-bold text-white drop-shadow-lg">
-                  手で泡を作ろう！
+                  手からwkwkを出そう！
                 </p>
                 <p className="text-sm text-white/80 mt-1">
-                  手追跡で泡のようなwkwkを生成
+                  AIでハンドトラッキング
                 </p>
               </div>
             </div>
