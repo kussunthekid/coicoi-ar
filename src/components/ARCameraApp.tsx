@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three-stdlib';
 import { Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, GripVertical, RotateCcw } from 'lucide-react';
 import { useGesture } from '@use-gesture/react';
 
-const ARZapparTrackingFixed = () => {
+const ARCameraApp = () => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -953,4 +953,4 @@ const ARZapparTrackingFixed = () => {
   );
 };
 
-export default ARZapparTrackingFixed;
+export default ARCameraApp;
