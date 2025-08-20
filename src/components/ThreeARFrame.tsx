@@ -50,7 +50,6 @@ const ThreeARFrame = () => {
           console.log('Loading Three.js and MindAR libraries...');
           
           const scripts = [
-            'https://aframe.io/releases/1.3.0/aframe.min.js',
             'https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js',
             'https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js',
             'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
@@ -95,23 +94,6 @@ const ThreeARFrame = () => {
 
     try {
       console.log('Starting Three.js AR initialization...');
-      
-      // Request camera permission first
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          } 
-        });
-        console.log('Camera permission granted');
-        stream.getTracks().forEach(track => track.stop());
-      } catch (cameraErr) {
-        console.error('Camera permission error:', cameraErr);
-        setError('カメラへのアクセスが拒否されました。ブラウザの設定でカメラの使用を許可してください。');
-        return;
-      }
 
       const config = markerConfigs[selectedMarker];
       console.log('Using marker config:', config);
@@ -289,7 +271,10 @@ const ThreeARFrame = () => {
       <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/50 to-transparent z-10">
         <div className="flex items-center justify-between text-white">
           <button
-            onClick={() => window.history.back()}
+            onClick={() => {
+              stopAR();
+              window.location.href = '/start';
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-black/50 rounded-lg backdrop-blur-sm hover:bg-black/70 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -300,8 +285,7 @@ const ThreeARFrame = () => {
           
           <button
             onClick={resetAR}
-            disabled={!isStarted}
-            className="flex items-center gap-2 px-4 py-2 bg-black/50 rounded-lg backdrop-blur-sm hover:bg-black/70 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-black/50 rounded-lg backdrop-blur-sm hover:bg-black/70 transition-colors"
           >
             <RotateCcw className="w-5 h-5" />
             リセット

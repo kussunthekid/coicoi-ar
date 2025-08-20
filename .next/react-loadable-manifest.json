@@ -19,10 +19,10 @@
       "static/chunks/181.752e94409b308bbe.js"
     ]
   },
-  "app/marker/page.tsx -> @/components/MarkerARFrame": {
-    "id": 8701,
+  "app/marker/page.tsx -> @/components/ThreeARFrame": {
+    "id": 5138,
     "files": [
-      "static/chunks/701.a393800fc6a2bad8.js"
+      "static/chunks/138.163716f3ad48ce0d.js"
     ]
   }
 }
