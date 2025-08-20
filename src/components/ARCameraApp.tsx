@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
-import { Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, GripVertical, RotateCcw } from 'lucide-react';
+import { Camera, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, GripVertical, RotateCcw, ArrowLeft as BackArrow, RefreshCw } from 'lucide-react';
 import { useGesture } from '@use-gesture/react';
 
 const ARCameraApp = () => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<any>(null);
@@ -30,7 +31,7 @@ const ARCameraApp = () => {
   // wkwkモデル用の状態
   const [wkwkRotationY, setWkwkRotationY] = useState(0);
   const [wkwkRotationX, setWkwkRotationX] = useState(0);
-  const [wkwkScale, setWkwkScale] = useState(0.56); // 2/3サイズ（元の2倍）
+  const [wkwkScale, setWkwkScale] = useState(0.56);
   
   // 現在選択中のモデルの状態を取得するヘルパー関数
   const getCurrentModelState = () => {
@@ -55,6 +56,7 @@ const ARCameraApp = () => {
     }
   };
   const [selectedModel, setSelectedModel] = useState<'coicoi' | 'wkwk'>('coicoi'); // 操作対象のモデル選択
+  const [showModelIndicator, setShowModelIndicator] = useState(false); // モデル選択インジケーターの表示状態
   const coicoiModelRef = useRef<THREE.Object3D | null>(null);
   const wkwkModelRef = useRef<THREE.Object3D | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null); // 現在操作中のモデル
@@ -134,6 +136,45 @@ const ARCameraApp = () => {
     }
   });
 
+  // モデルをリセットする関数
+  const resetModel = (modelType: 'coicoi' | 'wkwk' | 'both') => {
+    if (modelType === 'coicoi' || modelType === 'both') {
+      if (coicoiModelRef.current) {
+        setCoicoiRotationY(0);
+        setCoicoiRotationX(0);
+        setCoicoiScale(0.83);
+        
+        coicoiModelRef.current.rotation.y = 0;
+        coicoiModelRef.current.rotation.x = 0;
+        coicoiModelRef.current.scale.setScalar(0.83);
+        coicoiModelRef.current.position.set(-2, 0, 0);
+        
+        if ((coicoiModelRef.current as any).floatData) {
+          (coicoiModelRef.current as any).floatData.baseY = 0;
+        }
+        console.log('Reset coicoi model');
+      }
+    }
+    
+    if (modelType === 'wkwk' || modelType === 'both') {
+      if (wkwkModelRef.current) {
+        setWkwkRotationY(0);
+        setWkwkRotationX(0);
+        setWkwkScale(0.56);
+        
+        wkwkModelRef.current.rotation.y = 0;
+        wkwkModelRef.current.rotation.x = 0;
+        wkwkModelRef.current.scale.setScalar(0.56);
+        wkwkModelRef.current.position.set(2, 0, 0);
+        
+        if ((wkwkModelRef.current as any).floatData) {
+          (wkwkModelRef.current as any).floatData.baseY = 0;
+        }
+        console.log('Reset wkwk model');
+      }
+    }
+  };
+
   // useGestureでジェスチャーハンドリング
   const bind = useGesture({
     onDrag: ({ xy: [x, y], first, active, memo }) => {
@@ -146,6 +187,9 @@ const ARCameraApp = () => {
         if (touchedModel && touchedModel !== selectedModel) {
           console.log(`Switching to ${touchedModel} model`);
           setSelectedModel(touchedModel as 'coicoi' | 'wkwk');
+          // モデル選択インジケーターを10秒間表示
+          setShowModelIndicator(true);
+          setTimeout(() => setShowModelIndicator(false), 10000);
         }
         
         // ドラッグ対象のモデルを memo に保存
@@ -162,8 +206,8 @@ const ARCameraApp = () => {
       return memo;
     },
     
-    onPinch: ({ da: [, angle], first, memo }) => {
-      if (!isPlaced) return;
+    onPinch: ({ da: [distance, angle], first, memo, active }) => {
+      if (!isPlaced || !active) return;
       
       const currentState = getCurrentModelState();
       const currentModel = selectedModel === 'coicoi' ? coicoiModelRef.current : wkwkModelRef.current;
@@ -171,21 +215,32 @@ const ARCameraApp = () => {
       if (!currentModel) return;
       
       if (first) {
-        console.log('2-finger rotation started');
+        console.log('Pinch gesture started');
         return { 
           initialRotation: currentState.rotationY,
-          initialAngle: angle
+          initialScale: currentState.scale,
+          initialAngle: angle,
+          initialDistance: distance
         };
       }
       
-      // 2本指の回転でモデルを水平回転のみ
+      // ピンチで拡大縮小
+      const distanceRatio = distance / (memo?.initialDistance || distance);
+      const minScale = selectedModel === 'wkwk' ? 0.1 : 0.5;
+      const maxScale = 10.0;
+      const newScale = Math.max(minScale, Math.min(maxScale, (memo?.initialScale || currentState.scale) * distanceRatio));
+      
+      currentState.setScale(newScale);
+      currentModel.scale.setScalar(newScale);
+      
+      // 同時に回転も可能（オプション）
       const angleDiff = angle - (memo?.initialAngle || 0);
       const angleInRadians = (angleDiff * Math.PI) / 180;
       const newRotationY = (memo?.initialRotation || currentState.rotationY) + angleInRadians;
       currentState.setRotationY(newRotationY);
       currentModel.rotation.y = newRotationY;
       
-      console.log('Rotation:', Math.round((newRotationY * 180) / Math.PI), '°');
+      console.log('Scale:', newScale.toFixed(2), 'Rotation:', Math.round((newRotationY * 180) / Math.PI), '°');
       
       return memo;
     },
@@ -239,7 +294,6 @@ const ARCameraApp = () => {
 
         // シーン作成
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000000); // 背景を黒に設定
         sceneRef.current = scene;
 
         // カメラ作成（平行投影のOrthographicCamera）
@@ -266,6 +320,7 @@ const ARCameraApp = () => {
         });
         renderer.setSize(width, height);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setClearColor(0x000000, 0); // 完全透明な背景
         renderer.outputColorSpace = THREE.SRGBColorSpace; // 色空間を設定
         rendererRef.current = renderer;
 
@@ -273,53 +328,33 @@ const ARCameraApp = () => {
           mountRef.current.appendChild(renderer.domElement);
         }
 
-        // Webカメラの映像を背景に設定
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
+        // カメラの初期化
+        const video = videoRef.current;
+        if (video) {
+          console.log('=== CAMERA INITIALIZATION ===');
+          
+          // カメラストリームを取得
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
               facingMode: facingMode,
-              width: { ideal: 1920 },
-              height: { ideal: 1080 }
+              width: { ideal: 640 },
+              height: { ideal: 480 }
             },
             audio: false
           });
           
-          const video = document.createElement('video');
-          video.srcObject = stream;
-          video.setAttribute('autoplay', '');
-          video.setAttribute('muted', '');
-          video.setAttribute('playsinline', ''); // iOS Safari用
-          video.style.display = 'none'; // 非表示にする
-          document.body.appendChild(video);
+          const track = stream.getVideoTracks()[0];
+          const settings = track.getSettings();
+          console.log('Camera stream obtained with settings:', settings);
+          console.log('Actual facing mode used:', settings.facingMode);
           
-          // videoの準備ができるまで待つ
+          video.srcObject = stream;
           await video.play();
           
-          // ビデオの準備ができたらテクスチャとして設定
-          const setVideoTexture = () => {
-            const videoTexture = new THREE.VideoTexture(video);
-            videoTexture.minFilter = THREE.LinearFilter;
-            videoTexture.magFilter = THREE.LinearFilter;
-            videoTexture.needsUpdate = true;
-            scene.background = videoTexture;
-            console.log('Camera background set successfully');
-          };
-          
-          // loadedmetadataイベントを待つ
-          if (video.readyState >= 2) {
-            setVideoTexture();
-          } else {
-            video.addEventListener('loadedmetadata', setVideoTexture);
-          }
-          
-          
-          // クリーンアップ用にvideoとstreamを保存
-          (renderer as any).videoElement = video;
+          // ストリームを保存
           (renderer as any).videoStream = stream;
-        } catch (cameraError) {
-          console.warn('Camera access failed:', cameraError);
-          // カメラアクセスに失敗した場合はグラデーション背景
-          scene.background = new THREE.Color(0x404040);
+          
+          console.log('Camera started successfully');
         }
 
         // シンプルなグループを作成（AR風の配置用）
@@ -451,10 +486,35 @@ const ARCameraApp = () => {
         // 操作対象のモデルを設定
         modelRef.current = selectedModel === 'coicoi' ? coicoiModelRef.current : wkwkModelRef.current;
 
-        // シングルタップでモデル選択、ダブルタップで初期画面に戻る
+        // 3本指タップでリセット検出用
+        const handleTouchStart = (event: TouchEvent) => {
+          if (event.touches.length >= 3) {
+            console.log('3-finger touch detected - resetting both models');
+            event.preventDefault();
+            event.stopPropagation();
+            resetModel('both');
+          }
+        };
+
+        // シングルタップでモデル選択
         const handleTap = (event: MouseEvent | TouchEvent) => {
           event.preventDefault();
-          const currentTime = Date.now();
+          event.stopPropagation();
+          
+          // タッチイベントの場合はclickイベントを防ぐ
+          if (event.type === 'touchend') {
+            (event.target as any).ignoreClick = true;
+            setTimeout(() => {
+              if (event.target) {
+                (event.target as any).ignoreClick = false;
+              }
+            }, 350);
+          }
+          
+          // clickイベントで、touchendからのものは無視
+          if (event.type === 'click' && (event.target as any).ignoreClick) {
+            return;
+          }
           
           // マウス/タッチ座標を取得
           let clientX: number, clientY: number;
@@ -463,52 +523,25 @@ const ARCameraApp = () => {
             clientY = event.clientY;
           } else {
             const touch = event.changedTouches[0];
+            if (!touch) return; // changedTouchesが空の場合は処理しない
             clientX = touch.clientX;
             clientY = touch.clientY;
           }
           
-          if (currentTime - lastTapTime < doubleTapDelay) {
-            // ダブルタップ検出
-            console.log('Double tap detected - returning to initial screen');
-            
-            // AR状態をリセット
-            setIsARActive(false);
-            setIsPlaced(false);
-            setZapparLoaded(false);
-            setInitError(null);
-            setLastTapTime(0);
-            
-            // Three.jsリソースをクリーンアップ
-            if (frameRef.current) {
-              cancelAnimationFrame(frameRef.current);
-              frameRef.current = null;
-            }
-            
-            if (mountRef.current && renderer.domElement) {
-              mountRef.current.removeChild(renderer.domElement);
-            }
-            
-            renderer.dispose();
-            
-            // シーンとカメラの参照をクリア
-            sceneRef.current = null;
-            cameraRef.current = null;
-            rendererRef.current = null;
-            modelRef.current = null;
-            anchorGroupRef.current = null;
-          } else {
-            // シングルタップでモデル選択
-            const touchedModel = detectModelTouch(clientX, clientY);
-            if (touchedModel && touchedModel !== selectedModel) {
-              console.log(`Selecting ${touchedModel} model`);
-              setSelectedModel(touchedModel as 'coicoi' | 'wkwk');
-            }
-            setLastTapTime(currentTime);
+          // シングルタップでモデル選択
+          const touchedModel = detectModelTouch(clientX, clientY);
+          if (touchedModel && touchedModel !== selectedModel) {
+            console.log(`Selecting ${touchedModel} model`);
+            setSelectedModel(touchedModel as 'coicoi' | 'wkwk');
+            // モデル選択インジケーターを10秒間表示
+            setShowModelIndicator(true);
+            setTimeout(() => setShowModelIndicator(false), 10000);
           }
         };
 
         renderer.domElement.addEventListener('click', handleTap);
         renderer.domElement.addEventListener('touchend', handleTap);
+        renderer.domElement.addEventListener('touchstart', handleTouchStart);
 
         // アニメーションループ
         const animate = () => {
@@ -552,28 +585,26 @@ const ARCameraApp = () => {
         };
 
         window.addEventListener('resize', handleResize);
+        // モバイルのビューポート変更も監視
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', handleResize);
+        }
 
         return () => {
           window.removeEventListener('resize', handleResize);
+          if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', handleResize);
+          }
           renderer.domElement.removeEventListener('click', handleTap);
           renderer.domElement.removeEventListener('touchend', handleTap);
+          renderer.domElement.removeEventListener('touchstart', handleTouchStart);
           
           if (frameRef.current) {
             cancelAnimationFrame(frameRef.current);
             frameRef.current = null;
           }
           
-          // ビデオとストリームのクリーンアップ（より徹底的に）
-          if ((renderer as any).videoElement) {
-            const video = (renderer as any).videoElement;
-            video.pause();
-            video.srcObject = null;
-            video.load(); // 強制的にリセット
-            if (video.parentNode) {
-              video.parentNode.removeChild(video);
-            }
-            (renderer as any).videoElement = null;
-          }
+          // ビデオストリームを停止
           if ((renderer as any).videoStream) {
             const stream = (renderer as any).videoStream;
             stream.getTracks().forEach((track: MediaStreamTrack) => {
@@ -662,12 +693,70 @@ const ARCameraApp = () => {
   };
 
   const capturePhoto = () => {
-    if (!rendererRef.current) return;
+    if (!rendererRef.current || !videoRef.current) return;
 
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 150);
 
-    const canvas = rendererRef.current.domElement;
+    // Three.jsのシーンを再レンダリングして最新の状態をキャプチャ
+    const renderer = rendererRef.current;
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+    
+    if (!scene || !camera) return;
+
+    const video = videoRef.current;
+    const threeCanvas = renderer.domElement;
+    
+    // 現在の画面サイズ（実際に表示されているサイズ）
+    const displayWidth = window.visualViewport?.width || window.innerWidth;
+    const displayHeight = window.visualViewport?.height || window.innerHeight;
+    
+    // ビデオの表示サイズ（object-cover適用後）
+    const videoAspectRatio = video.videoWidth / video.videoHeight;
+    const displayAspectRatio = displayWidth / displayHeight;
+    
+    let videoDisplayWidth, videoDisplayHeight;
+    let videoOffsetX = 0, videoOffsetY = 0;
+    
+    // object-coverの計算（短い辺に合わせてクロップ）
+    if (videoAspectRatio > displayAspectRatio) {
+      // ビデオが横長：高さに合わせて幅をクロップ
+      videoDisplayHeight = displayHeight;
+      videoDisplayWidth = displayHeight * videoAspectRatio;
+      videoOffsetX = (displayWidth - videoDisplayWidth) / 2;
+    } else {
+      // ビデオが縦長：幅に合わせて高さをクロップ
+      videoDisplayWidth = displayWidth;
+      videoDisplayHeight = displayWidth / videoAspectRatio;
+      videoOffsetY = (displayHeight - videoDisplayHeight) / 2;
+    }
+
+    // 最終的なキャンバスサイズは画面サイズに合わせる
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+
+    // 1. ビデオフレーム全体を描画
+    ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 
+                 videoOffsetX, videoOffsetY, videoDisplayWidth, videoDisplayHeight);
+
+    // 2. Three.jsキャンバスを同じサイズで合成
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(threeCanvas, 0, 0, threeCanvas.width, threeCanvas.height,
+                 0, 0, displayWidth, displayHeight);
+
+    // デバッグ情報
+    console.log('Display size:', displayWidth, 'x', displayHeight);
+    console.log('Video resolution:', video.videoWidth, 'x', video.videoHeight);
+    console.log('Video display size:', videoDisplayWidth, 'x', videoDisplayHeight);
+    console.log('Video offset:', videoOffsetX, 'x', videoOffsetY);
+    console.log('Three.js canvas size:', threeCanvas.width, 'x', threeCanvas.height);
+
+    // 画像データを取得してダウンロード
     const imageData = canvas.toDataURL('image/png');
 
     const link = document.createElement('a');
@@ -680,47 +769,82 @@ const ARCameraApp = () => {
     setIsARActive(true);
   };
 
+  const goBack = () => {
+    // スタートページに戻る
+    window.location.href = '/start';
+  };
+
   const switchCamera = async () => {
     const newFacingMode = facingMode === 'environment' ? 'user' : 'environment';
     
     try {
-      // 現在のビデオストリームを停止
+      // 現在のビデオストリームを確実に停止
       if (rendererRef.current && (rendererRef.current as any).videoStream) {
         const currentStream = (rendererRef.current as any).videoStream;
-        currentStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        currentStream.getTracks().forEach((track: MediaStreamTrack) => {
+          track.stop();
+          track.enabled = false;
+        });
+        (rendererRef.current as any).videoStream = null;
       }
 
-      // 新しいストリームを取得
+      // 少し待機してから新しいストリームを取得
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 新しいストリームを取得（exactを使用してより確実に）
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: newFacingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          facingMode: { exact: newFacingMode },
+          width: { ideal: 640 },
+          height: { ideal: 480 }
         },
         audio: false
       });
 
-      // 新しいビデオテクスチャを設定
-      if (rendererRef.current && (rendererRef.current as any).videoElement && sceneRef.current) {
-        const video = (rendererRef.current as any).videoElement;
+      // ビデオ要素を確実に更新
+      if (videoRef.current && rendererRef.current) {
+        const video = videoRef.current;
+        
+        // 古いビデオを一旦停止
+        video.pause();
+        video.srcObject = null;
+        
+        // 新しいストリームを設定
         video.srcObject = newStream;
         await video.play();
 
-        const videoTexture = new THREE.VideoTexture(video);
-        videoTexture.minFilter = THREE.LinearFilter;
-        videoTexture.magFilter = THREE.LinearFilter;
-        videoTexture.needsUpdate = true;
-        sceneRef.current.background = videoTexture;
-
         // 新しいストリームを保存
         (rendererRef.current as any).videoStream = newStream;
+        
+        // 状態を更新
+        setFacingMode(newFacingMode);
+        console.log(`Successfully switched to ${newFacingMode} camera`);
       }
-
-      setFacingMode(newFacingMode);
-      console.log(`Successfully switched to ${newFacingMode} camera`);
       
     } catch (error) {
       console.error('Failed to switch camera:', error);
+      
+      // エラー時は元のfacingModeを維持またはフォールバック
+      try {
+        // facingMode指定なしで再試行
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        });
+        
+        if (videoRef.current && rendererRef.current) {
+          const video = videoRef.current;
+          video.srcObject = fallbackStream;
+          await video.play();
+          
+          (rendererRef.current as any).videoStream = fallbackStream;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback camera access also failed:', fallbackError);
+      }
     }
   };
 
@@ -764,7 +888,16 @@ const ARCameraApp = () => {
         </div>
       ) : (
         <>
-          {/* Three.js/Zapparレンダリングエリア */}
+          {/* カメラビデオ（背景として表示） */}
+          <video
+            ref={videoRef}
+            className="absolute top-0 left-0 w-full h-full object-cover pointer-events-none"
+            playsInline
+            muted
+            autoPlay
+          />
+
+          {/* Three.jsマウント（透明背景でビデオの上に重ねる） */}
           <div 
             ref={mountRef} 
             {...bind()}
@@ -787,26 +920,41 @@ const ARCameraApp = () => {
           )}
 
 
-          {/* カメラ切り替えボタン（右上） */}
-          {zapparLoaded && (
+          {/* 戻るボタン */}
+          <button
+            type="button"
+            onClick={goBack}
+            className="absolute bottom-[10%] left-[15%] w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl transition-all hover:scale-105 active:scale-95"
+            title="戻る"
+            style={{
+              background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.4), rgba(55, 65, 81, 0.2))',
+              boxShadow: '0 8px 32px rgba(75, 85, 99, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+            }}
+          >
+            <BackArrow className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" />
+          </button>
+
+          {/* カメラボタン（HandTrackingBubblesと同じ位置） */}
+          <div className="absolute left-1/2 transform -translate-x-1/2" style={{ bottom: '10%' }}>
             <button
               type="button"
-              onClick={switchCamera}
-              className="absolute top-4 right-4 w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl transition-all hover:scale-105 active:scale-95"
-              title={`カメラ切り替え (現在: ${facingMode === 'environment' ? 'アウトカメラ' : 'インカメラ'})`}
+              onClick={capturePhoto}
+              className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 backdrop-blur-xl rounded-full flex items-center justify-center border-2 border-white border-opacity-20 shadow-xl transition-all hover:scale-110 active:scale-95"
+              title="写真を撮影"
               style={{
-                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.4), rgba(14, 165, 233, 0.2))',
-                boxShadow: '0 8px 32px rgba(56, 189, 248, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(34, 197, 94, 0.8))',
+                boxShadow: '0 8px 32px rgba(59, 130, 246, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.1)'
               }}
             >
-              <RotateCcw className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" />
+              <Camera className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 xl:w-18 xl:h-18 text-white drop-shadow-lg" />
             </button>
-          )}
+          </div>
 
-          {/* モデル選択インジケーター（カメラボタンの下） */}
-          {zapparLoaded && (
+
+          {/* モデル選択インジケーター（切り替え時に2秒間表示） */}
+          {zapparLoaded && showModelIndicator && (
             <div
-              className="absolute top-20 right-4 w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl pointer-events-none"
+              className="absolute top-20 right-4 w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl pointer-events-none animate-pulse"
               title={`現在選択中: ${selectedModel === 'coicoi' ? 'coicoi' : 'wkwk'}モデル`}
               style={{
                 background: selectedModel === 'coicoi' 
@@ -847,10 +995,10 @@ const ARCameraApp = () => {
                 <GripVertical className="w-4 h-4 text-gray-300 text-opacity-80" />
               </div>
               
-              <div className="p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col space-y-3 sm:space-y-4 md:space-y-5">
-                {/* ジョイスティック風の位置制御（タブレット対応大型サイズ） */}
-                <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 backdrop-blur-lg bg-gray-900 bg-opacity-8 rounded-full flex items-center justify-center border border-gray-400 border-opacity-12 shadow-inner">
-                  <div className="relative w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32">
+              <div className="p-2 sm:p-3 md:p-4 lg:p-3 xl:p-4 flex flex-col space-y-2 sm:space-y-3 md:space-y-4 lg:space-y-3 xl:space-y-4">
+                {/* ジョイスティック風の位置制御（PC画面では小さめに調整） */}
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-20 lg:h-20 xl:w-24 xl:h-24 backdrop-blur-lg bg-gray-900 bg-opacity-8 rounded-full flex items-center justify-center border border-gray-400 border-opacity-12 shadow-inner">
+                  <div className="relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-16 lg:h-16 xl:w-20 xl:h-20">
                     <div 
                       className="absolute top-1/2 left-1/2 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 rounded-full transform -translate-x-1/2 -translate-y-1/2 shadow-sm"
                       style={{
@@ -863,43 +1011,43 @@ const ARCameraApp = () => {
                     <button
                       type="button"
                       onClick={moveModelUp}
-                      className="absolute top-0 left-1/2 w-5 h-5 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 backdrop-blur-sm bg-blue-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-x-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
+                      className="absolute top-0 left-1/2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-5 lg:h-5 xl:w-6 xl:h-6 backdrop-blur-sm bg-blue-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-x-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
                       title="上に移動"
                     >
-                      <ArrowUp className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-white drop-shadow-sm" />
+                      <ArrowUp className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 lg:w-2.5 lg:h-2.5 xl:w-3 xl:h-3 text-white drop-shadow-sm" />
                     </button>
                     
                     <button
                       type="button"
                       onClick={moveModelDown}
-                      className="absolute bottom-0 left-1/2 w-5 h-5 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 backdrop-blur-sm bg-red-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-x-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
+                      className="absolute bottom-0 left-1/2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-5 lg:h-5 xl:w-6 xl:h-6 backdrop-blur-sm bg-red-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-x-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
                       title="下に移動"
                     >
-                      <ArrowDown className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-white drop-shadow-sm" />
+                      <ArrowDown className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 lg:w-2.5 lg:h-2.5 xl:w-3 xl:h-3 text-white drop-shadow-sm" />
                     </button>
                     
                     <button
                       type="button"
                       onClick={moveModelLeft}
-                      className="absolute left-0 top-1/2 w-5 h-5 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 backdrop-blur-sm bg-green-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-y-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
+                      className="absolute left-0 top-1/2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-5 lg:h-5 xl:w-6 xl:h-6 backdrop-blur-sm bg-green-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-y-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
                       title="左に移動"
                     >
-                      <ArrowLeft className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-white drop-shadow-sm" />
+                      <ArrowLeft className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 lg:w-2.5 lg:h-2.5 xl:w-3 xl:h-3 text-white drop-shadow-sm" />
                     </button>
                     
                     <button
                       type="button"
                       onClick={moveModelRight}
-                      className="absolute right-0 top-1/2 w-5 h-5 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 backdrop-blur-sm bg-purple-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-y-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
+                      className="absolute right-0 top-1/2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-5 lg:h-5 xl:w-6 xl:h-6 backdrop-blur-sm bg-purple-500 bg-opacity-40 rounded-full flex items-center justify-center transform -translate-y-1/2 hover:bg-opacity-60 transition-all duration-200 border border-gray-400 border-opacity-30 shadow-lg"
                       title="右に移動"
                     >
-                      <ArrowRight className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 lg:w-5 lg:h-5 text-white drop-shadow-sm" />
+                      <ArrowRight className="w-2 h-2 sm:w-2.5 sm:h-2.5 md:w-3 md:h-3 lg:w-2.5 lg:h-2.5 xl:w-3 xl:h-3 text-white drop-shadow-sm" />
                     </button>
                   </div>
                 </div>
                 
-                {/* サイズ制御（タブレット対応大型サイズ） */}
-                <div className="w-20 h-7 sm:w-28 sm:h-9 md:w-32 md:h-10 lg:w-36 lg:h-11 backdrop-blur-lg bg-gray-800 bg-opacity-15 rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 px-3 sm:px-4 shadow-inner">
+                {/* サイズ制御（PC画面では小さめに調整） */}
+                <div className="w-16 h-6 sm:w-20 sm:h-7 md:w-24 md:h-8 lg:w-20 lg:h-7 xl:w-24 xl:h-8 backdrop-blur-lg bg-gray-800 bg-opacity-15 rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 px-2 sm:px-3 md:px-4 lg:px-3 xl:px-4 shadow-inner">
                   <input
                     type="range"
                     min={selectedModel === 'wkwk' ? 0.1 : 0.5}
@@ -923,25 +1071,24 @@ const ARCameraApp = () => {
                     }}
                   />
                 </div>
+                
+                {/* カメラ切り替えボタン */}
+                <button
+                  type="button"
+                  onClick={switchCamera}
+                  className="w-16 h-8 sm:w-20 sm:h-10 md:w-24 md:h-12 lg:w-20 lg:h-10 xl:w-24 xl:h-12 backdrop-blur-lg bg-blue-500 bg-opacity-20 rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-lg transition-all hover:bg-opacity-30 active:scale-95"
+                  title={`カメラ切り替え (現在: ${facingMode === 'environment' ? 'アウトカメラ' : 'インカメラ'})`}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(14, 165, 233, 0.1))',
+                    boxShadow: '0 4px 16px rgba(56, 189, 248, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                  }}
+                >
+                  <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-4 lg:h-4 xl:w-5 xl:h-5 text-white drop-shadow-sm" />
+                </button>
               </div>
             </div>
           )}
 
-          {/* カメラボタン（レスポンシブサイズ拡大） */}
-          <div className="absolute left-1/2 transform -translate-x-1/2" style={{ bottom: '10%' }}>
-            <button
-              type="button"
-              onClick={capturePhoto}
-              className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 backdrop-blur-xl rounded-full flex items-center justify-center border-2 border-white border-opacity-20 shadow-xl transition-all hover:scale-110 active:scale-95"
-              title="写真を撮影"
-              style={{
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(34, 197, 94, 0.8))',
-                boxShadow: '0 8px 32px rgba(59, 130, 246, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.1)'
-              }}
-            >
-              <Camera className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 xl:w-18 xl:h-18 text-white drop-shadow-lg" />
-            </button>
-          </div>
 
           {/* フラッシュエフェクト */}
           {showFlash && (

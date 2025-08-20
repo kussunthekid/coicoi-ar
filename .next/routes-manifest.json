@@ -64,6 +64,18 @@
       "namedRegex": "^/hands(?:/)?$"
     },
     {
+      "page": "/images",
+      "regex": "^/images(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/images(?:/)?$"
+    },
+    {
+      "page": "/marker",
+      "regex": "^/marker(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/marker(?:/)?$"
+    },
+    {
       "page": "/start",
       "regex": "^/start(?:/)?$",
       "routeKeys": {},

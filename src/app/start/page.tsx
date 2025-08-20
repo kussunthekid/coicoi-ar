@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Camera, Hand } from 'lucide-react';
+import { Camera, Hand, QrCode, Image } from 'lucide-react';
 
 export default function StartPage() {
   const router = useRouter();
@@ -12,6 +12,14 @@ export default function StartPage() {
 
   const handleHandTracking = () => {
     router.push('/hands');
+  };
+
+  const handleMarkerAR = () => {
+    router.push('/marker');
+  };
+
+  const handleImagesView = () => {
+    router.push('/images');
   };
 
   return (
@@ -70,6 +78,50 @@ export default function StartPage() {
             
             {/* 光るエフェクト */}
             <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-green-300/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none animate-pulse" />
+          </button>
+
+          {/* 画像認識ARボタン */}
+          <button
+            type="button"
+            onClick={handleMarkerAR}
+            className="group relative w-full px-8 py-6 bg-purple-500/20 backdrop-blur-xl rounded-full border-2 border-purple-300/30 transition-all duration-300 hover:scale-105 hover:bg-purple-500/30 active:scale-95"
+          >
+            <div className="flex items-center justify-center gap-4">
+              <QrCode className="w-8 h-8 text-white drop-shadow-lg group-hover:rotate-12 transition-transform duration-300 flex-shrink-0" />
+              <div className="text-center">
+                <p className="text-xl font-bold text-white drop-shadow-lg">
+                  画像認識でARを体験
+                </p>
+                <p className="text-sm text-white/80 mt-1">
+                  画像を認識してARモデルを表示
+                </p>
+              </div>
+            </div>
+            
+            {/* 光るエフェクト */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-purple-300/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none animate-pulse" />
+          </button>
+
+          {/* 認識画像表示ボタン */}
+          <button
+            type="button"
+            onClick={handleImagesView}
+            className="group relative w-full px-8 py-6 bg-orange-500/20 backdrop-blur-xl rounded-full border-2 border-orange-300/30 transition-all duration-300 hover:scale-105 hover:bg-orange-500/30 active:scale-95"
+          >
+            <div className="flex items-center justify-center gap-4">
+              <Image className="w-8 h-8 text-white drop-shadow-lg group-hover:rotate-12 transition-transform duration-300 flex-shrink-0" />
+              <div className="text-center">
+                <p className="text-xl font-bold text-white drop-shadow-lg">
+                  認識用画像を見る
+                </p>
+                <p className="text-sm text-white/80 mt-1">
+                  ARで認識する画像を確認・印刷
+                </p>
+              </div>
+            </div>
+            
+            {/* 光るエフェクト */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-orange-300/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none animate-pulse" />
           </button>
         </div>
 

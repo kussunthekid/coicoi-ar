@@ -1,8 +1,10 @@
 {
   "/favicon.ico/route": "/favicon.ico",
   "/_not-found/page": "/_not-found",
+  "/marker/page": "/marker",
   "/ar/page": "/ar",
-  "/start/page": "/start",
   "/hands/page": "/hands",
-  "/page": "/"
+  "/page": "/",
+  "/start/page": "/start",
+  "/images/page": "/images"
 }

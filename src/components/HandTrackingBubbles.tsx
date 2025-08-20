@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
-import { Camera } from 'lucide-react';
+import { Camera, ArrowLeft } from 'lucide-react';
 import { Hands, Results } from '@mediapipe/hands';
 import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 
@@ -13,6 +13,7 @@ interface Bubble {
   maxLife: number;
   scale: number;
   targetScale: number;
+  rotationSpeed: THREE.Vector3; // 回転速度を追加
 }
 
 const HandTrackingBubbles = () => {
@@ -58,22 +59,28 @@ const HandTrackingBubbles = () => {
   const createBubble = (position: THREE.Vector3) => {
     if (!wkwkModelRef.current || !sceneRef.current) return;
 
-    // 放射状に広がる速度を生成
+    // より自然な泳ぐような動きを生成
     const angle = Math.random() * Math.PI * 2; // ランダムな角度
-    const speed = 0.01 + Math.random() * 0.02; // 速度のランダム性
+    const speed = 0.008 + Math.random() * 0.015; // より穏やかな初期速度
+    const swimDirection = Math.random() * Math.PI * 2; // 泳ぐ方向
     
     const bubble: Bubble = {
       id: Math.random().toString(36).substr(2, 9),
       model: wkwkModelRef.current.clone(),
       velocity: new THREE.Vector3(
-        Math.cos(angle) * speed, // X方向：円状に広がる
-        Math.random() * 0.015 + 0.01, // Y方向：上昇
-        Math.sin(angle) * speed  // Z方向：円状に広がる
+        Math.cos(angle) * speed + Math.cos(swimDirection) * 0.005, // X方向：ランダムドリフト追加
+        Math.random() * 0.015 + 0.012, // Y方向：ゆるやかな上昇
+        Math.sin(angle) * speed + Math.sin(swimDirection) * 0.005  // Z方向：ランダムドリフト追加
       ),
       life: 0,
-      maxLife: 3 + Math.random() * 2, // 3-5秒の寿命
+      maxLife: 6 + Math.random() * 4, // 6-10秒でさらに長い寿命
       scale: 0,
-      targetScale: 0.05 + Math.random() * 0.1 // 0.05-0.15のランダムサイズ
+      targetScale: 0.05 + Math.random() * 0.1, // 0.05-0.15のランダムサイズ
+      rotationSpeed: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02, // X軸回転速度（-0.01～0.01）
+        (Math.random() - 0.5) * 0.016, // Y軸回転速度（-0.008～0.008）
+        (Math.random() - 0.5) * 0.01  // Z軸回転速度（-0.005～0.005）
+      )
     };
 
     // モデルの設定
@@ -83,7 +90,23 @@ const HandTrackingBubbles = () => {
       if ((child as any).isMesh) {
         (child as any).material = (child as any).material.clone();
         (child as any).material.transparent = true;
-        (child as any).material.opacity = 0.8;
+        (child as any).material.opacity = 0.9;
+        
+        // より明るく鮮やかにする設定
+        (child as any).material.emissive.setHex(0x222222); // 自己発光を追加
+        (child as any).material.emissiveIntensity = 0.1;
+        
+        // 色を明るく強調
+        if ((child as any).material.color) {
+          const color = (child as any).material.color;
+          color.r = Math.min(1.0, color.r * 1.3); // 赤を30%強化
+          color.g = Math.min(1.0, color.g * 1.3); // 緑を30%強化
+          color.b = Math.min(1.0, color.b * 1.3); // 青を30%強化
+        }
+        
+        // より鮮やかさを追加
+        (child as any).material.metalness = 0.1;
+        (child as any).material.roughness = 0.7;
       }
     });
 
@@ -97,28 +120,55 @@ const HandTrackingBubbles = () => {
     
     for (let i = bubbles.length - 1; i >= 0; i--) {
       const bubble = bubbles[i];
-      bubble.life += 0.016; // 60FPSで約0.016秒/フレーム
+      bubble.life += 0.015; // さらに遅めのアニメーション速度
 
-      // 位置とスケールの更新
-      bubble.model.position.add(bubble.velocity);
+      // より自然な泳ぐような動きの実装
+      const time = bubble.life;
       
-      // スケールアニメーション
-      if (bubble.life < 0.5) {
-        // 出現時
-        bubble.scale = THREE.MathUtils.lerp(0, bubble.targetScale, bubble.life * 2);
-      } else if (bubble.life > bubble.maxLife - 1) {
-        // 消失時
-        const fadeRatio = (bubble.maxLife - bubble.life);
-        bubble.scale = THREE.MathUtils.lerp(0, bubble.targetScale, fadeRatio);
+      // 蛇行するような動きを追加
+      const swayX = Math.sin(time * 2.5) * 0.003; // X軸のゆらぎ
+      const swayZ = Math.cos(time * 1.8) * 0.004; // Z軸のゆらぎ
+      
+      // 重力の影響でY方向の速度を少しずつ減少
+      bubble.velocity.y *= 0.998;
+      
+      // 水中の抵抗でX, Z方向の速度も減衰
+      bubble.velocity.x *= 0.995;
+      bubble.velocity.z *= 0.995;
+      
+      // 新しいランダムな方向転換（魚のような動き）
+      if (Math.random() < 0.02) { // 2%の確率で方向転換
+        bubble.velocity.x += (Math.random() - 0.5) * 0.01;
+        bubble.velocity.z += (Math.random() - 0.5) * 0.01;
+      }
+      
+      // 位置更新（蛇行を加味）
+      bubble.model.position.x += bubble.velocity.x + swayX;
+      bubble.model.position.y += bubble.velocity.y;
+      bubble.model.position.z += bubble.velocity.z + swayZ;
+      
+      // ランダムな回転速度で回転
+      bubble.model.rotation.x += bubble.rotationSpeed.x;
+      bubble.model.rotation.y += bubble.rotationSpeed.y;
+      bubble.model.rotation.z += bubble.rotationSpeed.z;
+      
+      // スケールアニメーション（より滑らかに）
+      if (bubble.life < 0.4) {
+        // 出現時（ゆるやかに出現）
+        bubble.scale = THREE.MathUtils.lerp(0, bubble.targetScale, bubble.life * 2.5);
+      } else if (bubble.life > bubble.maxLife - 1.5) {
+        // 消失時（より遅く消失）
+        const fadeRatio = (bubble.maxLife - bubble.life) / 1.5;
+        bubble.scale = THREE.MathUtils.lerp(0, bubble.targetScale, Math.max(0, fadeRatio));
       } else {
         bubble.scale = bubble.targetScale;
       }
       
       bubble.model.scale.setScalar(bubble.scale);
       
-      // 透明度の更新
-      if (bubble.life > bubble.maxLife - 1) {
-        const alpha = (bubble.maxLife - bubble.life);
+      // 透明度の更新（より遅い消失）
+      if (bubble.life > bubble.maxLife - 2.0) {
+        const alpha = (bubble.maxLife - bubble.life) / 2.0;
         bubble.model.traverse((child) => {
           if ((child as any).isMesh) {
             (child as any).material.opacity = alpha * 0.8;
@@ -141,9 +191,18 @@ const HandTrackingBubbles = () => {
     const newHandPositions: THREE.Vector3[] = [];
     
     results.multiHandLandmarks.forEach((landmarks) => {
-      // 手のひらの中心を計算
-      // ランドマーク0（手首）、5（人差し指の付け根）、9（中指の付け根）、13（薬指の付け根）、17（小指の付け根）の中心
-      const palmLandmarks = [landmarks[0], landmarks[5], landmarks[9], landmarks[13], landmarks[17]];
+      // 手のひらの中心をより正確に計算
+      // より多くのランドマークを使用して手のひらの中心を特定
+      // 手のひらの主要ポイント：0（手首）、1（手首の付け根）、5,9,13,17（各指の付け根）
+      const palmLandmarks = [
+        landmarks[0],  // 手首
+        landmarks[1],  // 手首の付け根
+        landmarks[5],  // 人差し指の付け根
+        landmarks[9],  // 中指の付け根
+        landmarks[13], // 薬指の付け根
+        landmarks[17], // 小指の付け根
+        landmarks[2],  // 親指の付け根も追加
+      ];
       
       let palmX = 0, palmY = 0, palmZ = 0;
       palmLandmarks.forEach(landmark => {
@@ -166,9 +225,14 @@ const HandTrackingBubbles = () => {
       newHandPositions.push(position);
       
       // 一定確率で泡を生成（手のひらから放射状に）
-      if (Math.random() < 0.2) { // 20%に確率を下げてパフォーマンス向上
-        // 泡の数も1個に減らす
-        createBubble(position);
+      // 両手の場合は生成確率を調整
+      const bubbleChance = results.multiHandLandmarks.length === 2 ? 0.15 : 0.2;
+      if (Math.random() < bubbleChance) {
+        // 手のひらの中心から少しランダムにずらした位置から生成
+        const offsetPosition = position.clone();
+        offsetPosition.x += (Math.random() - 0.5) * 0.1;
+        offsetPosition.y += (Math.random() - 0.5) * 0.1;
+        createBubble(offsetPosition);
       }
     });
 
@@ -194,14 +258,15 @@ const HandTrackingBubbles = () => {
           rendererRef.current = null;
         }
 
-        // Three.jsシーンの初期化
-        const width = window.innerWidth;
-        const height = window.innerHeight;
+        // Three.jsシーンの初期化（真のビューポートサイズを取得）
+        const containerWidth = window.visualViewport?.width || window.innerWidth;
+        const containerHeight = window.visualViewport?.height || window.innerHeight;
 
         const scene = new THREE.Scene();
         sceneRef.current = scene;
 
-        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+        // カメラのアスペクト比を画面全体に設定
+        const camera = new THREE.PerspectiveCamera(75, containerWidth / containerHeight, 0.1, 1000);
         camera.position.z = 3;
         cameraRef.current = camera;
 
@@ -210,7 +275,9 @@ const HandTrackingBubbles = () => {
           antialias: true,
           preserveDrawingBuffer: true  // 写真撮影のために描画バッファを保持
         });
-        renderer.setSize(width, height);
+        
+        // 全画面サイズに設定
+        renderer.setSize(containerWidth, containerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setClearColor(0x000000, 0); // 完全透明な背景
         rendererRef.current = renderer;
@@ -235,10 +302,10 @@ const HandTrackingBubbles = () => {
         });
 
         hands.setOptions({
-          maxNumHands: 1, // モバイルでは1つの手のみ検出
-          modelComplexity: 0, // 軽量モデルを使用
-          minDetectionConfidence: 0.7, // 検出精度を上げて誤検知を減らす
-          minTrackingConfidence: 0.7 // トラッキング精度を上げて処理を安定化
+          maxNumHands: 2, // 両手を検出
+          modelComplexity: 1, // より正確なモデルを使用
+          minDetectionConfidence: 0.5, // 検出感度を上げて手を見つけやすく
+          minTrackingConfidence: 0.5 // トラッキング感度も調整
         });
 
         hands.onResults(onResults);
@@ -297,20 +364,28 @@ const HandTrackingBubbles = () => {
         };
         animate();
 
-        // リサイズハンドラー
+        // リサイズハンドラー（モバイルのビューポート変更に対応）
         const handleResize = () => {
-          const newWidth = window.innerWidth;
-          const newHeight = window.innerHeight;
+          const newWidth = window.visualViewport?.width || window.innerWidth;
+          const newHeight = window.visualViewport?.height || window.innerHeight;
           
+          // カメラとレンダラーを全画面サイズに統一
           camera.aspect = newWidth / newHeight;
           camera.updateProjectionMatrix();
           renderer.setSize(newWidth, newHeight);
         };
 
         window.addEventListener('resize', handleResize);
+        // モバイルのビューポート変更も監視
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', handleResize);
+        }
 
         return () => {
           window.removeEventListener('resize', handleResize);
+          if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', handleResize);
+          }
           if (frameRef.current) {
             cancelAnimationFrame(frameRef.current);
           }
@@ -371,58 +446,56 @@ const HandTrackingBubbles = () => {
     
     if (!scene || !camera) return;
 
-    // Three.jsの現在のフレームをレンダリング
-    renderer.render(scene, camera);
-
-    // キャンバスを作成してビデオとThree.jsの画面を合成
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
     const video = videoRef.current;
     const threeCanvas = renderer.domElement;
     
-    // ビデオの実際のアスペクト比を保持
+    // 現在の画面サイズ（実際に表示されているサイズ）
+    const displayWidth = window.visualViewport?.width || window.innerWidth;
+    const displayHeight = window.visualViewport?.height || window.innerHeight;
+    
+    // ビデオの表示サイズ（object-cover適用後）
     const videoAspectRatio = video.videoWidth / video.videoHeight;
-    const screenAspectRatio = window.innerWidth / window.innerHeight;
+    const displayAspectRatio = displayWidth / displayHeight;
     
-    let canvasWidth, canvasHeight;
-    let videoDrawWidth, videoDrawHeight;
-    let videoX = 0, videoY = 0;
+    let videoDisplayWidth, videoDisplayHeight;
+    let videoOffsetX = 0, videoOffsetY = 0;
     
-    // ビデオの実際の解像度をベースにキャンバスサイズを決定
-    if (videoAspectRatio > screenAspectRatio) {
-      // ビデオが横長の場合：幅を基準にする
-      canvasWidth = video.videoWidth;
-      canvasHeight = video.videoWidth / screenAspectRatio;
-      videoDrawWidth = video.videoWidth;
-      videoDrawHeight = video.videoHeight;
+    // object-coverの計算（短い辺に合わせてクロップ）
+    if (videoAspectRatio > displayAspectRatio) {
+      // ビデオが横長：高さに合わせて幅をクロップ
+      videoDisplayHeight = displayHeight;
+      videoDisplayWidth = displayHeight * videoAspectRatio;
+      videoOffsetX = (displayWidth - videoDisplayWidth) / 2;
     } else {
-      // ビデオが縦長の場合：高さを基準にする
-      canvasWidth = video.videoHeight * screenAspectRatio;
-      canvasHeight = video.videoHeight;
-      videoDrawWidth = video.videoWidth;
-      videoDrawHeight = video.videoHeight;
+      // ビデオが縦長：幅に合わせて高さをクロップ
+      videoDisplayWidth = displayWidth;
+      videoDisplayHeight = displayWidth / videoAspectRatio;
+      videoOffsetY = (displayHeight - videoDisplayHeight) / 2;
     }
+
+    // 最終的なキャンバスサイズは画面サイズに合わせる
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
 
-    // 1. ビデオフレームを中央に配置して描画（アスペクト比を保持）
-    videoX = (canvasWidth - videoDrawWidth) / 2;
-    videoY = (canvasHeight - videoDrawHeight) / 2;
-    ctx.drawImage(video, videoX, videoY, videoDrawWidth, videoDrawHeight);
+    // 1. ビデオフレーム全体を描画
+    ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 
+                 videoOffsetX, videoOffsetY, videoDisplayWidth, videoDisplayHeight);
 
-    // 2. Three.jsのキャンバスを上に合成（キャンバス全体にフィット）
+    // 2. Three.jsキャンバスを同じサイズで合成
     ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(threeCanvas, 0, 0, canvasWidth, canvasHeight);
+    ctx.drawImage(threeCanvas, 0, 0, threeCanvas.width, threeCanvas.height,
+                 0, 0, displayWidth, displayHeight);
 
     // デバッグ情報
+    console.log('Display size:', displayWidth, 'x', displayHeight);
     console.log('Video resolution:', video.videoWidth, 'x', video.videoHeight);
-    console.log('Video aspect ratio:', videoAspectRatio);
-    console.log('Screen aspect ratio:', screenAspectRatio);
-    console.log('Canvas size:', canvasWidth, 'x', canvasHeight);
-    console.log('Video draw size:', videoDrawWidth, 'x', videoDrawHeight);
+    console.log('Video display size:', videoDisplayWidth, 'x', videoDisplayHeight);
+    console.log('Video offset:', videoOffsetX, 'x', videoOffsetY);
+    console.log('Three.js canvas size:', threeCanvas.width, 'x', threeCanvas.height);
 
     // 画像データを取得してダウンロード
     const imageData = canvas.toDataURL('image/png');
@@ -437,9 +510,20 @@ const HandTrackingBubbles = () => {
     setIsActive(true);
   };
 
+  const goBack = () => {
+    // スタートページに戻る
+    window.location.href = '/start';
+  };
+
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-black">
+    <div className="relative w-screen h-screen overflow-hidden bg-black" style={{ 
+      position: 'fixed', 
+      top: 0, 
+      left: 0,
+      width: '100vw',
+      height: '100vh'
+    }}>
       {!isActive ? (
         <div 
           onClick={startTracking}
@@ -472,7 +556,7 @@ const HandTrackingBubbles = () => {
           {/* Three.jsマウント（透明背景でビデオの上に重ねる） */}
           <div 
             ref={mountRef}
-            className="absolute top-0 left-0 w-full h-full"
+            className="absolute top-0 left-0 w-full h-full pointer-events-none"
           />
 
           {/* 初期化中またはエラーの表示 */}
@@ -489,7 +573,21 @@ const HandTrackingBubbles = () => {
           )}
 
 
-          {/* 撮影ボタン */}
+          {/* 戻るボタン */}
+          <button
+            type="button"
+            onClick={goBack}
+            className="absolute bottom-[10%] left-[15%] w-12 h-12 sm:w-14 sm:h-14 backdrop-blur-xl rounded-full flex items-center justify-center border border-gray-400 border-opacity-30 shadow-2xl transition-all hover:scale-105 active:scale-95"
+            title="戻る"
+            style={{
+              background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.4), rgba(55, 65, 81, 0.2))',
+              boxShadow: '0 8px 32px rgba(75, 85, 99, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+            }}
+          >
+            <ArrowLeft className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" />
+          </button>
+
+          {/* 撮影ボタン（画面中央） */}
           <div className="absolute left-1/2 transform -translate-x-1/2" style={{ bottom: '10%' }}>
             <button
               type="button"
@@ -510,12 +608,6 @@ const HandTrackingBubbles = () => {
             <div className="absolute inset-0 bg-white pointer-events-none animate-pulse" />
           )}
 
-          {/* 説明テキスト */}
-          {isLoaded && !error && (
-            <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-3 py-2 rounded-lg">
-              <div className="text-sm">手を動かして泡を生成しよう！</div>
-            </div>
-          )}
         </>
       )}
     </div>
