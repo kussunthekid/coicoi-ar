@@ -49,37 +49,65 @@ const ThreeARFrame = () => {
         if (!window.THREE || !window.MINDAR) {
           console.log('Loading Three.js and MindAR libraries...');
           
-          const scripts = [
-            'https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js',
-            'https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js',
-            'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js'
-          ];
-
-          for (const src of scripts) {
+          // Load Three.js first
+          if (!window.THREE) {
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement('script');
-              script.src = src;
-              script.async = false;
+              script.src = 'https://unpkg.com/three@0.147.0/build/three.min.js';
               script.onload = () => {
-                console.log(`Loaded: ${src}`);
+                console.log('Three.js loaded');
                 resolve();
               };
               script.onerror = () => {
-                console.error(`Failed to load: ${src}`);
-                reject(new Error(`Failed to load ${src}`));
+                console.error('Failed to load Three.js');
+                reject(new Error('Failed to load Three.js'));
               };
               document.head.appendChild(script);
             });
           }
 
-          await new Promise(resolve => setTimeout(resolve, 500));
-          console.log('All libraries loaded');
+          // Load GLTFLoader
+          if (!window.THREE.GLTFLoader) {
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js';
+              script.onload = () => {
+                console.log('GLTFLoader loaded');
+                resolve();
+              };
+              script.onerror = () => {
+                console.error('Failed to load GLTFLoader');
+                reject(new Error('Failed to load GLTFLoader'));
+              };
+              document.head.appendChild(script);
+            });
+          }
+
+          // Load MindAR
+          if (!window.MINDAR) {
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+              script.onload = () => {
+                console.log('MindAR loaded');
+                resolve();
+              };
+              script.onerror = () => {
+                console.error('Failed to load MindAR');
+                reject(new Error('Failed to load MindAR'));
+              };
+              document.head.appendChild(script);
+            });
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log('All libraries loaded successfully');
         }
         
         setIsInitialized(true);
       } catch (err) {
         console.error('Failed to load libraries:', err);
-        setError('ARライブラリの読み込みに失敗しました。');
+        setError('ARライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
       }
     };
 
@@ -362,12 +390,22 @@ const ThreeARFrame = () => {
             <div className="text-red-500 text-xl mb-4">⚠️</div>
             <h2 className="text-xl font-semibold mb-2">エラーが発生しました</h2>
             <p className="text-gray-300 mb-4">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-            >
-              再試行
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => window.location.reload()}
+                className="block w-full px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
+              >
+                再試行
+              </button>
+              <button
+                onClick={() => {
+                  window.location.href = '/start';
+                }}
+                className="block w-full px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                スタート画面に戻る
+              </button>
+            </div>
           </div>
         </div>
       )}
