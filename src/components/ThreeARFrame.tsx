@@ -50,6 +50,7 @@ const ThreeARFrame = () => {
           console.log('Loading Three.js and MindAR libraries...');
           
           const scripts = [
+            'https://aframe.io/releases/1.3.0/aframe.min.js',
             'https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js',
             'https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js',
             'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js'

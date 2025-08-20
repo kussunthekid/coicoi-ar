@@ -87,27 +87,11 @@ const MarkerARFrame = () => {
     try {
       console.log('Starting AR initialization...');
       
-      // Request camera permission first
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          } 
-        });
-        console.log('Camera permission granted');
-        // Stop the stream as MindAR will handle it
-        stream.getTracks().forEach(track => track.stop());
-      } catch (cameraErr) {
-        console.error('Camera permission error:', cameraErr);
-        setError('カメラへのアクセスが拒否されました。ブラウザの設定でカメラの使用を許可してください。');
-        return;
-      }
-      
       const config = markerConfigs[selectedMarker];
       const targetIndex = selectedMarker === 'coicoi' ? 0 : 1;
       console.log('Using marker config:', config, 'Target index:', targetIndex);
+      
+      console.log('Skipping targets.mind validation for now...');
 
       // Add global styles to force fullscreen
       const styleElement = document.createElement('style');
@@ -163,7 +147,7 @@ const MarkerARFrame = () => {
       // Create A-Frame scene HTML
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; maxTrack: 2; showStats: false; uiLoading: yes; uiScanning: yes; uiError: yes; filterMinCF: 0.00001; filterBeta: 10000; warmupTolerance: 5; missTolerance: 5;"
+          mindar-image="imageTargetSrc: /targets.mind; maxTrack: 2; showStats: false; uiLoading: yes; uiScanning: yes; uiError: yes; filterMinCF: 0.0001; filterBeta: 1000; warmupTolerance: 5; missTolerance: 5;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -226,7 +210,7 @@ const MarkerARFrame = () => {
         const scene = containerRef.current?.querySelector('a-scene');
         if (scene) {
           // Force scene to fullscreen immediately
-          scene.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; display: block !important; margin: 0 !important; padding: 0 !important;';
+          (scene as any).style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; display: block !important; margin: 0 !important; padding: 0 !important;';
           
           scene.addEventListener('loaded', () => {
             console.log('A-Frame scene loaded successfully');
@@ -236,13 +220,21 @@ const MarkerARFrame = () => {
             console.log(`Found ${anchors.length} anchor(s) in scene`);
             
             anchors.forEach((anchor, index) => {
+              console.log(`Setting up anchor ${index}:`, anchor);
+              
               anchor.addEventListener('targetFound', () => {
                 console.log(`🎯 Target ${index} found! Showing 3D model...`);
                 // Force visibility
                 const model = anchor.querySelector('a-gltf-model');
                 const box = anchor.querySelector('a-box');
-                if (model) model.setAttribute('visible', 'true');
-                if (box) box.setAttribute('visible', 'true');
+                if (model) {
+                  model.setAttribute('visible', 'true');
+                  console.log(`Model ${index} made visible`);
+                }
+                if (box) {
+                  box.setAttribute('visible', 'true');
+                  console.log(`Box ${index} made visible`);
+                }
               });
               
               anchor.addEventListener('targetLost', () => {
@@ -327,7 +319,10 @@ const MarkerARFrame = () => {
       <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/50 to-transparent z-10">
         <div className="flex items-center justify-between text-white">
           <button
-            onClick={() => window.history.back()}
+            onClick={() => {
+              stopAR();
+              window.location.href = '/start';
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-black/50 rounded-lg backdrop-blur-sm hover:bg-black/70 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -338,8 +333,7 @@ const MarkerARFrame = () => {
           
           <button
             onClick={resetAR}
-            disabled={!isStarted}
-            className="flex items-center gap-2 px-4 py-2 bg-black/50 rounded-lg backdrop-blur-sm hover:bg-black/70 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-black/50 rounded-lg backdrop-blur-sm hover:bg-black/70 transition-colors"
           >
             <RotateCcw className="w-5 h-5" />
             リセット
