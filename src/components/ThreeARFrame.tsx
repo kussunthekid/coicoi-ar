@@ -46,16 +46,22 @@ const ThreeARFrame = () => {
   useEffect(() => {
     const loadLibraries = async () => {
       try {
-        if (!window.THREE || !window.MINDAR) {
+        console.log('Checking libraries...');
+        console.log('window.THREE:', !!window.THREE);
+        console.log('window.MINDAR:', !!window.MINDAR);
+        
+        if (!window.THREE || !window.MINDAR || !window.MINDAR?.IMAGE) {
           console.log('Loading Three.js and MindAR libraries...');
           
           // Load Three.js first
           if (!window.THREE) {
+            console.log('Loading Three.js...');
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement('script');
               script.src = 'https://unpkg.com/three@0.147.0/build/three.min.js';
               script.onload = () => {
-                console.log('Three.js loaded');
+                console.log('Three.js loaded successfully');
+                console.log('window.THREE:', !!window.THREE);
                 resolve();
               };
               script.onerror = () => {
@@ -64,15 +70,20 @@ const ThreeARFrame = () => {
               };
               document.head.appendChild(script);
             });
+            
+            // Wait for Three.js to be available
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
 
           // Load GLTFLoader
-          if (!window.THREE.GLTFLoader) {
+          if (!window.THREE?.GLTFLoader) {
+            console.log('Loading GLTFLoader...');
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement('script');
               script.src = 'https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js';
               script.onload = () => {
-                console.log('GLTFLoader loaded');
+                console.log('GLTFLoader loaded successfully');
+                console.log('window.THREE.GLTFLoader:', !!window.THREE.GLTFLoader);
                 resolve();
               };
               script.onerror = () => {
@@ -81,33 +92,60 @@ const ThreeARFrame = () => {
               };
               document.head.appendChild(script);
             });
+            
+            // Wait for GLTFLoader to be available
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
 
           // Load MindAR
-          if (!window.MINDAR) {
+          if (!window.MINDAR?.IMAGE) {
+            console.log('Loading MindAR...');
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement('script');
               script.src = 'https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
               script.onload = () => {
-                console.log('MindAR loaded');
-                resolve();
+                console.log('MindAR script loaded');
+                // Wait a bit more and check if MINDAR.IMAGE is available
+                setTimeout(() => {
+                  console.log('window.MINDAR:', !!window.MINDAR);
+                  console.log('window.MINDAR.IMAGE:', !!window.MINDAR?.IMAGE);
+                  console.log('window.MINDAR.IMAGE.MindARThree:', !!window.MINDAR?.IMAGE?.MindARThree);
+                  if (window.MINDAR?.IMAGE?.MindARThree) {
+                    console.log('MindAR loaded successfully with IMAGE support');
+                    resolve();
+                  } else {
+                    reject(new Error('MindAR loaded but IMAGE not available'));
+                  }
+                }, 1000);
               };
               script.onerror = () => {
-                console.error('Failed to load MindAR');
-                reject(new Error('Failed to load MindAR'));
+                console.error('Failed to load MindAR script');
+                reject(new Error('Failed to load MindAR script'));
               };
               document.head.appendChild(script);
             });
           }
 
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log('All libraries loaded successfully');
+          console.log('Final library check:');
+          console.log('window.THREE:', !!window.THREE);
+          console.log('window.MINDAR:', !!window.MINDAR);
+          console.log('window.MINDAR.IMAGE:', !!window.MINDAR?.IMAGE);
+          console.log('window.MINDAR.IMAGE.MindARThree:', !!window.MINDAR?.IMAGE?.MindARThree);
         }
         
+        // Final validation
+        if (!window.THREE) {
+          throw new Error('Three.js not available');
+        }
+        if (!window.MINDAR?.IMAGE?.MindARThree) {
+          throw new Error('MindAR IMAGE not available');
+        }
+        
+        console.log('All libraries loaded and validated successfully');
         setIsInitialized(true);
       } catch (err) {
         console.error('Failed to load libraries:', err);
-        setError('ARライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
+        setError(`ARライブラリの読み込みに失敗しました: ${err.message || err}`);
       }
     };
 
@@ -122,11 +160,23 @@ const ThreeARFrame = () => {
 
     try {
       console.log('Starting Three.js AR initialization...');
+      
+      // Re-check libraries before initialization
+      console.log('Pre-init library check:');
+      console.log('window.THREE:', !!window.THREE);
+      console.log('window.MINDAR:', !!window.MINDAR);
+      console.log('window.MINDAR.IMAGE:', !!window.MINDAR?.IMAGE);
+      console.log('window.MINDAR.IMAGE.MindARThree:', !!window.MINDAR?.IMAGE?.MindARThree);
+      
+      if (!window.MINDAR?.IMAGE?.MindARThree) {
+        throw new Error('MindAR IMAGE not available at initialization time. Please reload the page.');
+      }
 
       const config = markerConfigs[selectedMarker];
       console.log('Using marker config:', config);
 
       // Initialize MindAR
+      console.log('Creating MindARThree instance...');
       const mindarThree = new window.MINDAR.IMAGE.MindARThree({
         container: containerRef.current,
         imageTargetSrc: config.mindFile,
@@ -167,7 +217,7 @@ const ThreeARFrame = () => {
       coicoiAnchor.group.add(coicoiBox);
 
       // Load coicoi 3D model
-      loader.load('/coicoi.glb', (gltf) => {
+      loader.load('/coicoi.glb', (gltf: any) => {
         console.log('Coicoi model loaded');
         const model = gltf.scene;
         model.scale.set(1, 1, 1);
@@ -177,12 +227,12 @@ const ThreeARFrame = () => {
         // Animation mixer if the model has animations
         if (gltf.animations && gltf.animations.length > 0) {
           const mixer = new window.THREE.AnimationMixer(model);
-          gltf.animations.forEach((clip) => {
+          gltf.animations.forEach((clip: any) => {
             mixer.clipAction(clip).play();
           });
           mixersRef.current.push(mixer);
         }
-      }, undefined, (error) => {
+      }, undefined, (error: any) => {
         console.error('Error loading coicoi model:', error);
       });
 
@@ -197,7 +247,7 @@ const ThreeARFrame = () => {
       wkwkAnchor.group.add(wkwkBox);
 
       // Load wkwk 3D model
-      loader.load('/wkwk.glb', (gltf) => {
+      loader.load('/wkwk.glb', (gltf: any) => {
         console.log('WKWK model loaded');
         const model = gltf.scene;
         model.scale.set(1, 1, 1);
@@ -207,12 +257,12 @@ const ThreeARFrame = () => {
         // Animation mixer if the model has animations
         if (gltf.animations && gltf.animations.length > 0) {
           const mixer = new window.THREE.AnimationMixer(model);
-          gltf.animations.forEach((clip) => {
+          gltf.animations.forEach((clip: any) => {
             mixer.clipAction(clip).play();
           });
           mixersRef.current.push(mixer);
         }
-      }, undefined, (error) => {
+      }, undefined, (error: any) => {
         console.error('Error loading wkwk model:', error);
       });
 
@@ -254,9 +304,9 @@ const ThreeARFrame = () => {
 
       setIsStarted(true);
       
-    } catch (err) {
+    } catch (err: any) {
       console.error('AR initialization failed:', err);
-      setError('AR初期化に失敗しました: ' + err.message);
+      setError('AR初期化に失敗しました: ' + (err?.message || err));
     }
   };
 
