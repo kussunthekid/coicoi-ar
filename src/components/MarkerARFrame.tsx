@@ -240,62 +240,74 @@ const MarkerARFrame = () => {
       `;
       document.head.appendChild(styleElement);
 
+      // カスタムスキャナーUIのCSSスタイルを追加
+      const customUIStyle = document.createElement('style');
+      customUIStyle.setAttribute('data-custom-scanning-ui', 'true');
+      customUIStyle.textContent = `
+        #custom-scanning-overlay {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          background: rgba(0, 0, 0, 0.8) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
+          z-index: 9999 !important;
+        }
+        #custom-scanning-overlay.hidden {
+          display: none !important;
+        }
+        #stop-ar-custom-btn {
+          position: absolute !important;
+          top: 20px !important;
+          right: 20px !important;
+          width: 48px !important;
+          height: 48px !important;
+          border-radius: 50% !important;
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.8)) !important;
+          border: 2px solid rgba(255, 255, 255, 0.5) !important;
+          color: white !important;
+          font-size: 20px !important;
+          font-weight: bold !important;
+          cursor: pointer !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+          transition: all 0.2s ease !important;
+          z-index: 10000 !important;
+        }
+        #stop-ar-custom-btn:hover {
+          transform: scale(1.1) !important;
+        }
+        .scanning-instructions {
+          color: white !important;
+          text-align: center !important;
+          font-size: 18px !important;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          margin-top: 40px !important;
+        }
+      `;
+      document.head.appendChild(customUIStyle);
+
       // カスタムスキャナーUIを作成
       const customScanningOverlay = document.createElement('div');
       customScanningOverlay.id = 'custom-scanning-overlay';
       customScanningOverlay.className = 'hidden';
       customScanningOverlay.innerHTML = `
-        <div style="
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.8);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          z-index: 9999;
-        ">
-          <div style="
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 10000;
-          ">
-            <button id="stop-ar-custom-btn" type="button" style="
-              width: 48px;
-              height: 48px;
-              border-radius: 50%;
-              background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.8));
-              border: 2px solid rgba(255, 255, 255, 0.5);
-              color: white;
-              font-size: 20px;
-              font-weight: bold;
-              cursor: pointer;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-              transition: all 0.2s ease;
-            ">✕</button>
-          </div>
-          <div style="
-            color: white;
-            text-align: center;
-            font-size: 18px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin-top: 40px;
-          ">
-            <p>認識させたい画像をカメラに向けてください</p>
-            <p style="font-size: 14px; opacity: 0.8; margin-top: 10px;">両方の画像を認識中...</p>
-          </div>
+        <button id="stop-ar-custom-btn" type="button">✕</button>
+        <div class="scanning-instructions">
+          <p>認識させたい画像をカメラに向けてください</p>
+          <p style="font-size: 14px; opacity: 0.8; margin-top: 10px;">両方の画像を認識中...</p>
         </div>
       `;
       
       // カスタムオーバーレイをbodyに追加
       document.body.appendChild(customScanningOverlay);
+      console.log('✅ Custom scanning overlay created and added to DOM');
 
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
@@ -356,6 +368,26 @@ const MarkerARFrame = () => {
             console.log('Scene element:', scene);
             console.log('Scene innerHTML preview:', scene.innerHTML.substring(0, 200));
             
+            // カスタムオーバーレイの状態をチェック
+            const customOverlay = document.getElementById('custom-scanning-overlay');
+            console.log('🔍 Custom overlay found:', !!customOverlay);
+            if (customOverlay) {
+              console.log('🔍 Custom overlay classes:', customOverlay.className);
+              console.log('🔍 Custom overlay display:', getComputedStyle(customOverlay).display);
+              console.log('🔍 Custom overlay visibility:', getComputedStyle(customOverlay).visibility);
+              
+              // 強制的に表示してテスト
+              setTimeout(() => {
+                customOverlay.classList.remove('hidden');
+                console.log('🔍 Temporarily removed hidden class for testing');
+                
+                setTimeout(() => {
+                  customOverlay.classList.add('hidden');
+                  console.log('🔍 Added hidden class back');
+                }, 3000);
+              }, 2000);
+            }
+
             // カスタムボタンのイベントリスナーを設定
             const stopButton = document.getElementById('stop-ar-custom-btn');
             if (stopButton) {
@@ -807,6 +839,13 @@ const MarkerARFrame = () => {
       if (customOverlay) {
         customOverlay.remove();
         console.log('Removed custom scanning overlay');
+      }
+      
+      // カスタムUIスタイルを削除
+      const customUIStyle = document.querySelector('style[data-custom-scanning-ui]');
+      if (customUIStyle) {
+        customUIStyle.remove();
+        console.log('Removed custom scanning UI styles');
       }
 
       // MindAR UIオーバーレイを強制削除
