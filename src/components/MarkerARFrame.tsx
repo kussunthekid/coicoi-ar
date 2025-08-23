@@ -674,39 +674,85 @@ const MarkerARFrame = () => {
   };
 
 
+  // 戻る処理関数
+  const handleBackNavigation = async () => {
+    console.log('Back button activated!');
+    
+    try {
+      // ARが開始されている場合は停止
+      if (isStarted) {
+        await stopAR();
+      }
+      // 直接ナビゲーション
+      router.push('/start');
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      // エラーが発生してもナビゲーションは実行
+      router.push('/start');
+    }
+  };
+
   // 戻るボタンコンポーネント
-  const BackButton = () => (
-    <button
-      type="button"
-      onClick={async () => {
-        console.log('Back button clicked!');
-        
-        try {
-          // ARが開始されている場合は停止
-          if (isStarted) {
-            await stopAR();
-          }
-          // 直接ナビゲーション
-          router.push('/start');
-        } catch (error) {
-          console.error('Error during cleanup:', error);
-          // エラーが発生してもナビゲーションは実行
-          router.push('/start');
-        }
-      }}
-      className="fixed bottom-6 left-6 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
-      style={{
-        zIndex: 2147483647,
-        background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
-        boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
-        position: 'fixed',
-        pointerEvents: 'auto'
-      }}
-      aria-label="戻る"
-    >
-      <ArrowLeft className="w-7 h-7 text-white" />
-    </button>
-  );
+  const BackButton = () => {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+      const button = buttonRef.current;
+      if (!button) return;
+
+      // ネイティブイベントリスナーを登録
+      const handlePointerDown = (e: PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Back button pointerdown!');
+        handleBackNavigation();
+      };
+
+      const handleTouchStart = (e: TouchEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Back button touchstart!');
+        handleBackNavigation();
+      };
+
+      const handleClick = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Back button click!');
+        handleBackNavigation();
+      };
+
+      // パッシブではないイベントリスナーを登録
+      button.addEventListener('pointerdown', handlePointerDown, { passive: false });
+      button.addEventListener('touchstart', handleTouchStart, { passive: false });
+      button.addEventListener('click', handleClick, { passive: false });
+
+      return () => {
+        // クリーンアップ
+        button.removeEventListener('pointerdown', handlePointerDown);
+        button.removeEventListener('touchstart', handleTouchStart);
+        button.removeEventListener('click', handleClick);
+      };
+    }, []);
+
+    return (
+      <button
+        ref={buttonRef}
+        type="button"
+        className="fixed bottom-6 left-6 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
+        style={{
+          zIndex: 2147483647,
+          background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
+          boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+          position: 'fixed',
+          pointerEvents: 'auto'
+        }}
+        aria-label="戻る"
+      >
+        <ArrowLeft className="w-7 h-7 text-white" />
+      </button>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
