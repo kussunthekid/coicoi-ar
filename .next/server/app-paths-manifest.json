@@ -2,9 +2,9 @@
   "/_not-found/page": "app/_not-found/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/hands/page": "app/hands/page.js",
-  "/ar/page": "app/ar/page.js",
+  "/marker/page": "app/marker/page.js",
   "/images/page": "app/images/page.js",
-  "/page": "app/page.js",
   "/start/page": "app/start/page.js",
-  "/marker/page": "app/marker/page.js"
+  "/ar/page": "app/ar/page.js",
+  "/page": "app/page.js"
 }

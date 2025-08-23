@@ -2,9 +2,9 @@
   "/_not-found/page": "/_not-found",
   "/favicon.ico/route": "/favicon.ico",
   "/hands/page": "/hands",
-  "/ar/page": "/ar",
+  "/marker/page": "/marker",
   "/images/page": "/images",
-  "/page": "/",
   "/start/page": "/start",
-  "/marker/page": "/marker"
+  "/ar/page": "/ar",
+  "/page": "/"
 }
