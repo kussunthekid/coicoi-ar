@@ -30,7 +30,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/ar": {
+    "/images": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -43,32 +43,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/ar",
-      "dataRoute": "/ar.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/hands": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "Next-Action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/hands",
-      "dataRoute": "/hands.rsc",
+      "srcRoute": "/images",
+      "dataRoute": "/images.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -102,7 +78,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/start": {
+    "/ar": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -115,32 +91,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/start",
-      "dataRoute": "/start.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/images": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "Next-Action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/images",
-      "dataRoute": "/images.rsc",
+      "srcRoute": "/ar",
+      "dataRoute": "/ar.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -165,6 +117,54 @@
       "initialRevalidateSeconds": false,
       "srcRoute": "/marker",
       "dataRoute": "/marker.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/start": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "Next-Action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/start",
+      "dataRoute": "/start.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/hands": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "Next-Action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/hands",
+      "dataRoute": "/hands.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",

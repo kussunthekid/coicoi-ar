@@ -243,7 +243,7 @@ const MarkerARFrame = () => {
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; showStats: false; filterMinCF: 0.0001; filterBeta: 1000;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -478,27 +478,59 @@ const MarkerARFrame = () => {
                 console.log('MindAR controller found:', mindarSystem.controller);
                 console.log('Number of targets:', mindarSystem.controller.maxTrack || 'unknown');
                 
-                // MindARのデフォルトUIを強制的に隠す
-                const hideMindARUI = () => {
-                  const mindARUIElements = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, [class*="mindar-ui"]');
-                  mindARUIElements.forEach(el => {
-                    (el as HTMLElement).style.display = 'none';
-                    el.remove();
+                // MindARのデフォルトUIを完全に削除
+                const removeMindARUI = () => {
+                  // より広範囲なセレクタでMindAR関連要素をすべて削除
+                  const selectors = [
+                    '.mindar-ui-overlay', '.mindar-ui-scanning', '.mindar-ui-loading', 
+                    '.mindar-ui', '[class*="mindar-ui"]', '[id*="mindar-ui"]',
+                    // MindARが動的に作成する可能性のある要素
+                    'div[style*="position: absolute"]', 
+                    'div[style*="position: fixed"]',
+                    // 白い枠線を持つ要素を特定
+                    'div[style*="border"]', 'canvas[style*="border"]'
+                  ];
+                  
+                  let removedCount = 0;
+                  selectors.forEach(selector => {
+                    const elements = document.querySelectorAll(selector);
+                    elements.forEach(el => {
+                      // MindARのスキャナーフレームかどうかチェック
+                      const style = getComputedStyle(el);
+                      const hasWhiteBorder = style.borderColor.includes('255') || style.borderColor.includes('white');
+                      const isFixedPosition = style.position === 'fixed' || style.position === 'absolute';
+                      const isHighZIndex = parseInt(style.zIndex) > 1000;
+                      
+                      // 戻るボタンやカスタムUIではない場合のみ削除
+                      if ((hasWhiteBorder || isFixedPosition || isHighZIndex) && 
+                          !el.closest('[aria-label="戻る"]') && 
+                          !el.closest('[aria-label="AR停止"]') &&
+                          !el.matches('.custom-scanning-ui') &&
+                          !el.closest('.custom-scanning-ui')) {
+                        console.log('🚫 Removing suspected MindAR UI element:', el);
+                        el.remove();
+                        removedCount++;
+                      }
+                    });
                   });
-                  if (mindARUIElements.length > 0) {
-                    console.log(`🚫 Removed ${mindARUIElements.length} MindAR default UI elements`);
+                  
+                  if (removedCount > 0) {
+                    console.log(`🚫 Removed ${removedCount} suspected MindAR UI elements`);
                   }
                 };
                 
-                // 初回実行とその後定期実行
-                setTimeout(hideMindARUI, 100);
-                const hideUIInterval = setInterval(hideMindARUI, 500);
+                // より頻繁に実行して完全に削除
+                setTimeout(removeMindARUI, 50);
+                const removeUIInterval = setInterval(removeMindARUI, 200);
                 
-                // 3秒後にインターバルを停止
+                // 5秒後にインターバルを停止
                 setTimeout(() => {
-                  clearInterval(hideUIInterval);
-                  console.log('🚫 Stopped MindAR UI hiding interval');
-                }, 3000);
+                  clearInterval(removeUIInterval);
+                  console.log('🚫 Stopped MindAR UI removal interval');
+                  
+                  // 最終確認として、カスタムUIを表示
+                  console.log('✅ Now safe to show custom UI');
+                }, 5000);
                 
                 // 手動でARシステムを開始
                 if (mindarSystem.start) {
