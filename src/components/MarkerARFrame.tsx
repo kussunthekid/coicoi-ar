@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, Camera } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -28,6 +29,7 @@ const MarkerARFrame = () => {
   const touchStartDistance = useRef<number | null>(null);
   const currentCoicoiScale = useRef(0.114);
   const currentWkwkScale = useRef(0.0095);
+  const [isMounted, setIsMounted] = useState(false);
 
   const markerConfigs: Record<string, MarkerConfig> = {
     coicoi: {
@@ -43,6 +45,8 @@ const MarkerARFrame = () => {
   };
 
   useEffect(() => {
+    setIsMounted(true);
+    
     const loadMindAR = async () => {
       try {
         if (!window.MINDAR || !window.AFRAME) {
@@ -86,6 +90,7 @@ const MarkerARFrame = () => {
     // クリーンアップ関数 - コンポーネントのアンマウント時に必ず実行
     return () => {
       console.log('MarkerARFrame component unmounting, cleaning up...');
+      setIsMounted(false);
       // 非同期で停止処理を実行
       (async () => {
         await stopAR();
@@ -669,6 +674,40 @@ const MarkerARFrame = () => {
   };
 
 
+  // 戻るボタンコンポーネント
+  const BackButton = () => (
+    <button
+      type="button"
+      onClick={async () => {
+        console.log('Back button clicked!');
+        
+        try {
+          // ARが開始されている場合は停止
+          if (isStarted) {
+            await stopAR();
+          }
+          // 直接ナビゲーション
+          router.push('/start');
+        } catch (error) {
+          console.error('Error during cleanup:', error);
+          // エラーが発生してもナビゲーションは実行
+          router.push('/start');
+        }
+      }}
+      className="fixed bottom-6 left-6 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
+      style={{
+        zIndex: 2147483647,
+        background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
+        boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+        position: 'fixed',
+        pointerEvents: 'auto'
+      }}
+      aria-label="戻る"
+    >
+      <ArrowLeft className="w-7 h-7 text-white" />
+    </button>
+  );
+
   return (
     <div className="fixed inset-0 bg-black overflow-hidden">
       {/* AR Container */}
@@ -678,35 +717,11 @@ const MarkerARFrame = () => {
         style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', margin: 0, padding: 0, zIndex: 1 }}
       />
 
-      {/* 戻るボタン - 最前面に配置 */}
-      <button
-        type="button"
-        onClick={async () => {
-          console.log('Back button clicked!');
-          
-          try {
-            // ARが開始されている場合は停止
-            if (isStarted) {
-              await stopAR();
-            }
-            // 直接ナビゲーション
-            router.push('/start');
-          } catch (error) {
-            console.error('Error during cleanup:', error);
-            // エラーが発生してもナビゲーションは実行
-            router.push('/start');
-          }
-        }}
-        className="fixed bottom-6 left-6 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
-        style={{
-          zIndex: 2147483647,
-          background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
-          boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
-        }}
-        aria-label="戻る"
-      >
-        <ArrowLeft className="w-7 h-7 text-white" />
-      </button>
+      {/* 戻るボタンをポータルでbody直下に描画 */}
+      {isMounted && typeof document !== 'undefined' && createPortal(
+        <BackButton />,
+        document.body
+      )}
 
 
       {/* Instructions - AR中のみ表示 */}
