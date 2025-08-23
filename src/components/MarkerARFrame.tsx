@@ -31,15 +31,6 @@ const MarkerARFrame = () => {
   const currentWkwkScale = useRef(0.0095);
   const [isMounted, setIsMounted] = useState(false);
   
-  // デバッグ用: isStartedの変化を監視
-  useEffect(() => {
-    console.log('🔴 isStarted changed:', isStarted);
-  }, [isStarted]);
-  
-  // デバッグ用: isMountedの変化を監視  
-  useEffect(() => {
-    console.log('🔴 isMounted changed:', isMounted);
-  }, [isMounted]);
   
   // タッチハンドラの参照を保持
   const touchHandlersRef = useRef<{
@@ -254,7 +245,7 @@ const MarkerARFrame = () => {
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: false;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -844,93 +835,53 @@ const MarkerARFrame = () => {
   };
 
 
-  // AR停止（❌）ボタンコンポーネント
-  const StopARButton = () => {
-    const buttonRef = useRef<HTMLButtonElement>(null);
-
-    useEffect(() => {
-      console.log('🔴 StopARButton useEffect called');
-      const button = buttonRef.current;
-      if (!button) {
-        console.log('❌ StopARButton ref is null');
-        return;
-      }
-      
-      console.log('✅ StopARButton ref found:', button);
-      console.log('🔴 Button styles:', {
-        position: button.style.position,
-        zIndex: button.style.zIndex,
-        display: button.style.display,
-        visibility: button.style.visibility,
-        top: button.style.top,
-        right: button.style.right
-      });
-
-      const handleStopClick = async (e: Event) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('❌ Stop AR button clicked!');
-        await stopAR();
-      };
-
-      const handleTouchStart = (e: TouchEvent) => {
-        console.log('❌ Stop AR button touchstart!');
-        handleStopClick(e);
-      };
-
-      const handleClick = (e: MouseEvent) => {
-        console.log('❌ Stop AR button click!');
-        handleStopClick(e);
-      };
-
-      const handlePointerDown = (e: PointerEvent) => {
-        console.log('❌ Stop AR button pointerdown!');
-        handleStopClick(e);
-      };
-
-      // より高い優先度でイベントリスナーを登録
-      button.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-      button.addEventListener('click', handleClick, { passive: false, capture: true });
-      button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
-
-      return () => {
-        console.log('🔴 StopARButton cleanup called');
-        // クリーンアップ
-        button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
-        button.removeEventListener('click', handleClick, { capture: true } as any);  
-        button.removeEventListener('pointerdown', handlePointerDown, { capture: true } as any);
-      };
-    }, []);
-
-    console.log('🔴 StopARButton rendering...');
-    
+  // カスタムスキャナーUIコンポーネント
+  const CustomScanningUI = () => {
     return (
-      <button
-        ref={buttonRef}
-        type="button"
-        className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
-        style={{
-          zIndex: 2147483647,
-          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.8))',
-          boxShadow: '0 12px 40px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
-          position: 'fixed',
-          pointerEvents: 'auto',
-          display: 'flex',
-          visibility: 'visible',
-          top: '24px',
-          right: '24px'
-        }}
-        aria-label="AR停止"
-        onClick={async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('❌ React onClick triggered!');
-          await stopAR();
-        }}
-      >
-        <X className="w-6 h-6 text-white font-bold" />
-      </button>
+      <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-[9999]">
+        {/* 停止ボタン */}
+        <button
+          type="button"
+          onClick={async () => {
+            console.log('❌ Stopping AR from custom UI');
+            await stopAR();
+          }}
+          className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 cursor-pointer z-[10000]"
+          style={{
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+          }}
+          aria-label="AR停止"
+        >
+          <X className="w-6 h-6 text-white font-bold" />
+        </button>
+
+        {/* スキャナー画面のメッセージ */}
+        <div className="text-white text-center space-y-4">
+          <h2 className="text-2xl font-semibold">画像を認識中...</h2>
+          <p className="text-lg opacity-90">
+            認識させたい画像をカメラに向けてください
+          </p>
+          <div className="flex justify-center space-x-4 text-sm">
+            <span className="bg-white/20 px-3 py-1 rounded-full">
+              coicoi画像
+            </span>
+            <span className="bg-white/20 px-3 py-1 rounded-full">
+              wkwk画像
+            </span>
+          </div>
+        </div>
+
+        {/* スキャナーアニメーション */}
+        <div className="mt-8 relative">
+          <div className="w-64 h-64 border-2 border-white/50 rounded-lg relative">
+            <div className="absolute inset-0 border-2 border-cyan-400 rounded-lg animate-pulse"></div>
+            <div className="absolute top-0 left-0 w-6 h-6 border-l-2 border-t-2 border-cyan-400"></div>
+            <div className="absolute top-0 right-0 w-6 h-6 border-r-2 border-t-2 border-cyan-400"></div>
+            <div className="absolute bottom-0 left-0 w-6 h-6 border-l-2 border-b-2 border-cyan-400"></div>
+            <div className="absolute bottom-0 right-0 w-6 h-6 border-r-2 border-b-2 border-cyan-400"></div>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -1033,23 +984,10 @@ const MarkerARFrame = () => {
         document.body
       )}
 
-      {/* AR停止ボタン（❌）- AR実行中のみ表示 */}
-      {(() => {
-        const shouldShow = isStarted && isMounted && typeof document !== 'undefined';
-        console.log('🔴 StopARButton render condition check:', {
-          isStarted,
-          isMounted,
-          documentExists: typeof document !== 'undefined',
-          shouldShow
-        });
-        
-        if (shouldShow) {
-          console.log('🔴 Creating StopARButton portal...');
-          return createPortal(<StopARButton />, document.body);
-        }
-        
-        return null;
-      })()}
+      {/* カスタムスキャナーUI - AR実行中のみ表示 */}
+      {isStarted && (
+        <CustomScanningUI />
+      )}
 
 
 
