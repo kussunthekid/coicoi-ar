@@ -846,20 +846,22 @@ const MarkerARFrame = () => {
             console.log('❌ Stopping AR from custom UI');
             await stopAR();
           }}
-          className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 cursor-pointer z-[10000] pointer-events-auto"
+          className="fixed top-6 right-6 w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 border-2 border-white/40 transition-all duration-300 active:scale-90 hover:scale-105 cursor-pointer z-[10000] pointer-events-auto shadow-lg"
           style={{
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+            boxShadow: '0 8px 25px rgba(236, 72, 153, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
           }}
           aria-label="AR停止"
         >
-          <X className="w-6 h-6 text-white font-bold" />
+          <X className="w-7 h-7 text-white font-bold drop-shadow-sm" />
         </button>
 
         {/* 上部の説明テキスト */}
-        <div className="fixed top-6 left-6 right-20 text-white pointer-events-none">
-          <div className="bg-black/60 backdrop-blur-sm rounded-lg px-4 py-3">
-            <h2 className="text-lg font-semibold">画像を認識中...</h2>
-            <p className="text-sm opacity-90">
+        <div className="fixed top-6 left-6 right-24 text-white pointer-events-none">
+          <div className="bg-gradient-to-r from-purple-900/70 to-pink-900/70 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/20 shadow-xl">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-pink-200 to-purple-200 bg-clip-text text-transparent">
+              画像を認識中...
+            </h2>
+            <p className="text-sm opacity-90 mt-1 text-pink-100">
               coicoi または wkwk の画像をカメラに向けてください
             </p>
           </div>
@@ -868,39 +870,45 @@ const MarkerARFrame = () => {
         {/* 中央のスキャナーフレーム */}
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative">
-            <div className="w-64 h-64 border-2 border-cyan-400/60 rounded-lg relative">
-              <div className="absolute inset-0 border-2 border-cyan-400 rounded-lg animate-pulse"></div>
-              {/* 四隅のマーカー */}
-              <div className="absolute -top-1 -left-1 w-8 h-8 border-l-4 border-t-4 border-cyan-400"></div>
-              <div className="absolute -top-1 -right-1 w-8 h-8 border-r-4 border-t-4 border-cyan-400"></div>
-              <div className="absolute -bottom-1 -left-1 w-8 h-8 border-l-4 border-b-4 border-cyan-400"></div>
-              <div className="absolute -bottom-1 -right-1 w-8 h-8 border-r-4 border-b-4 border-cyan-400"></div>
+            <div className="w-72 h-72 border-3 border-pink-400/60 rounded-3xl relative shadow-2xl">
+              <div className="absolute inset-0 border-3 border-gradient-to-r from-pink-400 via-purple-400 to-pink-400 rounded-3xl animate-pulse"></div>
+              {/* 四隅のマーカー - 角丸デザイン */}
+              <div className="absolute -top-2 -left-2 w-10 h-10 border-l-4 border-t-4 border-pink-400 rounded-tl-2xl"></div>
+              <div className="absolute -top-2 -right-2 w-10 h-10 border-r-4 border-t-4 border-pink-400 rounded-tr-2xl"></div>
+              <div className="absolute -bottom-2 -left-2 w-10 h-10 border-l-4 border-b-4 border-pink-400 rounded-bl-2xl"></div>
+              <div className="absolute -bottom-2 -right-2 w-10 h-10 border-r-4 border-b-4 border-pink-400 rounded-br-2xl"></div>
               
-              {/* 中央のクロスヘア */}
+              {/* 中央のクロスヘア - グラデーション */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-8 h-8">
-                  <div className="absolute w-full h-0.5 bg-cyan-400 top-1/2 transform -translate-y-1/2"></div>
-                  <div className="absolute h-full w-0.5 bg-cyan-400 left-1/2 transform -translate-x-1/2"></div>
+                <div className="w-10 h-10">
+                  <div className="absolute w-full h-1 bg-gradient-to-r from-transparent via-pink-400 to-transparent top-1/2 transform -translate-y-1/2 rounded-full"></div>
+                  <div className="absolute h-full w-1 bg-gradient-to-b from-transparent via-pink-400 to-transparent left-1/2 transform -translate-x-1/2 rounded-full"></div>
                 </div>
               </div>
+              
+              {/* 内側の装飾フレーム */}
+              <div className="absolute inset-4 border border-purple-300/40 rounded-2xl"></div>
             </div>
             
             {/* スキャンライン */}
-            <div className="absolute inset-0 w-64 h-64 overflow-hidden rounded-lg">
-              <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-bounce"></div>
+            <div className="absolute inset-0 w-72 h-72 overflow-hidden rounded-3xl">
+              <div className="w-full h-1 bg-gradient-to-r from-transparent via-pink-400 via-purple-400 to-transparent animate-bounce shadow-lg"></div>
             </div>
+            
+            {/* 回転する外側リング */}
+            <div className="absolute -inset-2 border-2 border-dashed border-purple-400/30 rounded-full animate-spin" style={{ animationDuration: '8s' }}></div>
           </div>
         </div>
 
         {/* 下部のターゲット画像インジケーター */}
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-4 pointer-events-none">
-          <div className="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
-            <span className="text-white text-sm">coicoi</span>
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-6 pointer-events-none">
+          <div className="bg-gradient-to-r from-pink-800/80 to-purple-800/80 backdrop-blur-md rounded-2xl px-5 py-3 flex items-center space-x-3 border border-pink-300/30 shadow-lg">
+            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-pink-400 to-rose-400 animate-pulse shadow-sm"></div>
+            <span className="text-pink-100 font-medium">coicoi</span>
           </div>
-          <div className="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
-            <span className="text-white text-sm">wkwk</span>
+          <div className="bg-gradient-to-r from-purple-800/80 to-pink-800/80 backdrop-blur-md rounded-2xl px-5 py-3 flex items-center space-x-3 border border-purple-300/30 shadow-lg">
+            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 animate-pulse shadow-sm"></div>
+            <span className="text-purple-100 font-medium">wkwk</span>
           </div>
         </div>
       </div>
