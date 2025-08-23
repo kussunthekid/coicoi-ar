@@ -240,10 +240,67 @@ const MarkerARFrame = () => {
       `;
       document.head.appendChild(styleElement);
 
+      // カスタムスキャナーUIを作成
+      const customScanningOverlay = document.createElement('div');
+      customScanningOverlay.id = 'custom-scanning-overlay';
+      customScanningOverlay.className = 'hidden';
+      customScanningOverlay.innerHTML = `
+        <div style="
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.8);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+        ">
+          <div style="
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+          ">
+            <button id="stop-ar-custom-btn" type="button" style="
+              width: 48px;
+              height: 48px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.8));
+              border: 2px solid rgba(255, 255, 255, 0.5);
+              color: white;
+              font-size: 20px;
+              font-weight: bold;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+              transition: all 0.2s ease;
+            ">✕</button>
+          </div>
+          <div style="
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin-top: 40px;
+          ">
+            <p>認識させたい画像をカメラに向けてください</p>
+            <p style="font-size: 14px; opacity: 0.8; margin-top: 10px;">両方の画像を認識中...</p>
+          </div>
+        </div>
+      `;
+      
+      // カスタムオーバーレイをbodyに追加
+      document.body.appendChild(customScanningOverlay);
+
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: false;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiScanning: #custom-scanning-overlay;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -298,6 +355,33 @@ const MarkerARFrame = () => {
             console.log('✅ A-Frame scene loaded successfully');
             console.log('Scene element:', scene);
             console.log('Scene innerHTML preview:', scene.innerHTML.substring(0, 200));
+            
+            // カスタムボタンのイベントリスナーを設定
+            const stopButton = document.getElementById('stop-ar-custom-btn');
+            if (stopButton) {
+              console.log('✅ Custom stop button found, setting up event listeners...');
+              
+              const handleStopClick = async (e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('❌ Custom stop button clicked!');
+                await stopAR();
+              };
+              
+              stopButton.addEventListener('click', handleStopClick);
+              stopButton.addEventListener('touchstart', handleStopClick, { passive: false });
+              stopButton.addEventListener('pointerdown', handleStopClick);
+              
+              // ホバー効果を追加
+              stopButton.addEventListener('mouseenter', () => {
+                (stopButton as HTMLElement).style.transform = 'scale(1.1)';
+              });
+              stopButton.addEventListener('mouseleave', () => {
+                (stopButton as HTMLElement).style.transform = 'scale(1)';
+              });
+            } else {
+              console.warn('❌ Custom stop button not found');
+            }
             
             // Test basic A-Frame rendering
             const testBox = scene.querySelector('a-box');
@@ -718,6 +802,13 @@ const MarkerARFrame = () => {
         styleElement.remove();
       }
 
+      // カスタムスキャナーオーバーレイを削除
+      const customOverlay = document.getElementById('custom-scanning-overlay');
+      if (customOverlay) {
+        customOverlay.remove();
+        console.log('Removed custom scanning overlay');
+      }
+
       // MindAR UIオーバーレイを強制削除
       const mindarOverlays = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, .mindar-ui, .mindar-camera');
       mindarOverlays.forEach(overlay => {
@@ -830,83 +921,6 @@ const MarkerARFrame = () => {
     }
   };
 
-  // AR停止（❌）ボタン処理
-  const handleStopAR = async () => {
-    console.log('❌ Stop AR button activated!');
-    
-    try {
-      await stopAR();
-      console.log('✅ AR stopped successfully');
-    } catch (error) {
-      console.error('Error stopping AR:', error);
-    }
-  };
-
-  // AR停止ボタンコンポーネント
-  const StopARButton = () => {
-    const buttonRef = useRef<HTMLButtonElement>(null);
-
-    useEffect(() => {
-      const button = buttonRef.current;
-      if (!button) return;
-
-      const handleClick = async (e: Event) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('❌ Stop AR button clicked!');
-        await handleStopAR();
-      };
-
-      const handleTouchStart = (e: TouchEvent) => {
-        console.log('❌ Stop AR button touchstart!');
-        handleClick(e);
-      };
-
-      const handlePointerDown = (e: PointerEvent) => {
-        console.log('❌ Stop AR button pointerdown!');
-        handleClick(e);
-      };
-
-      // より高い優先度でイベントリスナーを登録
-      button.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-      button.addEventListener('click', handleClick, { passive: false, capture: true });
-      button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
-
-      return () => {
-        // クリーンアップ
-        button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
-        button.removeEventListener('click', handleClick, { capture: true } as any);  
-        button.removeEventListener('pointerdown', handlePointerDown, { capture: true } as any);
-      };
-    }, []);
-
-    return (
-      <button
-        ref={buttonRef}
-        type="button"
-        className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
-        style={{
-          zIndex: 2147483647,
-          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.8), rgba(220, 38, 38, 0.6))',
-          boxShadow: '0 12px 40px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
-          position: 'fixed',
-          pointerEvents: 'auto',
-          display: 'flex',
-          visibility: 'visible'
-        }}
-        aria-label="AR停止"
-        onClick={async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('❌ React onClick triggered!');
-          await handleStopAR();
-        }}
-      >
-        <X className="w-6 h-6 text-white font-bold" />
-      </button>
-    );
-  };
 
   // 戻るボタンコンポーネント
   const BackButton = () => {
@@ -1007,28 +1021,8 @@ const MarkerARFrame = () => {
         document.body
       )}
 
-      {/* AR停止ボタン（❌）- AR実行中のみ表示 */}
-      {isStarted && isMounted && typeof document !== 'undefined' && createPortal(
-        <StopARButton />,
-        document.body
-      )}
 
 
-      {/* Instructions - AR中のみ表示 */}
-      {isStarted && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" style={{ zIndex: 10 }}>
-          <div className="text-white text-center space-y-2">
-            <p className="text-sm opacity-90">
-              認識させたい画像をカメラに向けてください
-            </p>
-            <div className="flex justify-center space-x-4 text-xs">
-              <span className="bg-black/50 px-3 py-1 rounded">
-                両方の画像を認識中
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Start Button */}
       {isInitialized && !isStarted && !error && (
