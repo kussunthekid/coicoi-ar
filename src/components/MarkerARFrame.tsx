@@ -83,11 +83,13 @@ const MarkerARFrame = () => {
 
     loadMindAR();
 
-    // クリーンアップ関数
+    // クリーンアップ関数 - コンポーネントのアンマウント時に必ず実行
     return () => {
-      if (isStarted) {
-        stopAR();
-      }
+      console.log('MarkerARFrame component unmounting, cleaning up...');
+      // 非同期で停止処理を実行
+      (async () => {
+        await stopAR();
+      })();
     };
   }, []);
 
@@ -198,7 +200,7 @@ const MarkerARFrame = () => {
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -422,6 +424,12 @@ const MarkerARFrame = () => {
               if (mindarSystem && mindarSystem.controller) {
                 console.log('MindAR controller found:', mindarSystem.controller);
                 console.log('Number of targets:', mindarSystem.controller.maxTrack || 'unknown');
+                
+                // 手動でARシステムを開始
+                if (mindarSystem.start) {
+                  console.log('Starting MindAR system manually...');
+                  mindarSystem.start();
+                }
               }
               
               // すぐにカメラ要素を確認
@@ -559,34 +567,72 @@ const MarkerARFrame = () => {
     console.log('Stopping AR session...');
     
     try {
-      // MindARを停止
+      // MindARシステムを適切に停止
       const scene = containerRef.current?.querySelector('a-scene');
       if (scene && (scene as any).systems && (scene as any).systems['mindar-image-system']) {
         console.log('Stopping MindAR system...');
         const mindarSystem = (scene as any).systems['mindar-image-system'];
+        
+        // stop()メソッドを呼び出し
         if (mindarSystem.stop) {
-          await mindarSystem.stop();
+          try {
+            await mindarSystem.stop();
+            console.log('MindAR system stopped');
+          } catch (err) {
+            console.error('Error stopping MindAR:', err);
+          }
+        }
+        
+        // pause()も呼び出して確実に停止
+        if (mindarSystem.pause) {
+          try {
+            mindarSystem.pause();
+            console.log('MindAR system paused');
+          } catch (err) {
+            console.error('Error pausing MindAR:', err);
+          }
         }
       }
 
-      // すべてのvideo要素を停止
+      // すべてのvideo要素のトラックを明示的に停止
       const videos = document.querySelectorAll('video');
       videos.forEach(video => {
         console.log('Stopping video stream...');
         if (video.srcObject) {
           const stream = video.srcObject as MediaStream;
+          // 各トラックを個別に停止
           stream.getTracks().forEach(track => {
+            console.log(`Stopping ${track.kind} track...`);
             track.stop();
-            console.log('Video track stopped');
+            track.enabled = false;
           });
           video.srcObject = null;
         }
         video.pause();
+        video.src = '';
+        video.load();
         video.remove();
       });
+      
+      // メディアデバイスの全ストリームを停止
+      if (navigator.mediaDevices) {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          console.log('Found media devices:', devices.length);
+        } catch (err) {
+          console.error('Error enumerating devices:', err);
+        }
+      }
 
       // A-Frameシーンを完全に削除
       if (containerRef.current) {
+        // 先にイベントリスナーを削除
+        const sceneEl = containerRef.current.querySelector('a-scene');
+        if (sceneEl) {
+          sceneEl.removeEventListener('loaded', () => {});
+          sceneEl.removeEventListener('arReady', () => {});
+          sceneEl.removeEventListener('arError', () => {});
+        }
         containerRef.current.innerHTML = '';
       }
 
@@ -597,9 +643,15 @@ const MarkerARFrame = () => {
       }
 
       // MindAR UIオーバーレイを削除
-      const mindarOverlays = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading');
+      const mindarOverlays = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, .mindar-ui');
       mindarOverlays.forEach(overlay => {
         overlay.remove();
+      });
+      
+      // A-Frame関連の要素をすべて削除
+      const aframeElements = document.querySelectorAll('a-scene, a-assets, a-camera, a-entity');
+      aframeElements.forEach(el => {
+        el.remove();
       });
 
       // body/htmlスタイルをリセット
