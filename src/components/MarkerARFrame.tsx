@@ -30,6 +30,13 @@ const MarkerARFrame = () => {
   const currentCoicoiScale = useRef(0.114);
   const currentWkwkScale = useRef(0.0095);
   const [isMounted, setIsMounted] = useState(false);
+  
+  // タッチハンドラの参照を保持
+  const touchHandlersRef = useRef<{
+    handleTouchStart?: (e: TouchEvent) => void;
+    handleTouchMove?: (e: TouchEvent) => void;
+    handleTouchEnd?: (e: TouchEvent) => void;
+  }>({});
 
   const markerConfigs: Record<string, MarkerConfig> = {
     coicoi: {
@@ -85,12 +92,48 @@ const MarkerARFrame = () => {
       }
     };
 
+    // ページ非表示・ブラウザバック時のクリーンアップ
+    const handlePageHide = async () => {
+      console.log('🔄 Page hide detected, cleaning up AR...');
+      await stopAR();
+    };
+
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        console.log('🔄 Page became hidden, cleaning up AR...');
+        await stopAR();
+      }
+    };
+
+    const handleBeforeUnload = async () => {
+      console.log('🔄 Page unloading, cleaning up AR...');
+      await stopAR();
+    };
+
+    const handlePopstate = async () => {
+      console.log('🔄 Browser back detected, cleaning up AR...');
+      await stopAR();
+    };
+
+    // イベントリスナーを登録
+    window.addEventListener('pagehide', handlePageHide);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopstate);
+
     loadMindAR();
 
     // クリーンアップ関数 - コンポーネントのアンマウント時に必ず実行
     return () => {
       console.log('MarkerARFrame component unmounting, cleaning up...');
       setIsMounted(false);
+      
+      // イベントリスナーを削除
+      window.removeEventListener('pagehide', handlePageHide);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopstate);
+      
       // 非同期で停止処理を実行
       (async () => {
         await stopAR();
@@ -553,6 +596,13 @@ const MarkerARFrame = () => {
         touchStartDistance.current = null;
       };
       
+      // タッチハンドラの参照を保存
+      touchHandlersRef.current = {
+        handleTouchStart,
+        handleTouchMove,
+        handleTouchEnd
+      };
+      
       // イベントリスナーを追加
       document.addEventListener('touchstart', handleTouchStart);
       document.addEventListener('touchmove', handleTouchMove);
@@ -595,10 +645,10 @@ const MarkerARFrame = () => {
         }
       }
 
-      // すべてのvideo要素のトラックを明示的に停止
-      const videos = document.querySelectorAll('video');
-      videos.forEach(video => {
-        console.log('Stopping video stream...');
+      // ARコンテナ内のvideo要素のみを対象にして停止
+      const containerVideos = containerRef.current?.querySelectorAll('video') || [];
+      containerVideos.forEach(video => {
+        console.log('Stopping AR video stream...');
         if (video.srcObject) {
           const stream = video.srcObject as MediaStream;
           // 各トラックを個別に停止
@@ -612,7 +662,21 @@ const MarkerARFrame = () => {
         video.pause();
         video.src = '';
         video.load();
-        video.remove();
+      });
+      
+      // グローバルに残留しているARカメラvideo要素を削除
+      const globalVideos = document.querySelectorAll('video');
+      globalVideos.forEach(video => {
+        // ARカメラらしい特徴を持つvideo要素のみ削除
+        if (video.autoplay && video.muted && video.playsInline && 
+            (video.width > 100 || video.height > 100)) {
+          console.log('Removing AR camera video element');
+          if (video.srcObject) {
+            const stream = video.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+          }
+          video.remove();
+        }
       });
       
       // メディアデバイスの全ストリームを停止
@@ -625,7 +689,8 @@ const MarkerARFrame = () => {
         }
       }
 
-      // A-Frameシーンを完全に削除
+      // 先にvideo/canvas要素を処理してからコンテナを削除
+      // A-Frameシーンを完全に削除  
       if (containerRef.current) {
         // 先にイベントリスナーを削除
         const sceneEl = containerRef.current.querySelector('a-scene');
@@ -634,6 +699,7 @@ const MarkerARFrame = () => {
           sceneEl.removeEventListener('arReady', () => {});
           sceneEl.removeEventListener('arError', () => {});
         }
+        // コンテナの内容を削除
         containerRef.current.innerHTML = '';
       }
 
@@ -682,10 +748,19 @@ const MarkerARFrame = () => {
       document.body.style.cssText = '';
       document.documentElement.style.cssText = '';
 
-      // タッチイベントリスナーを削除
-      document.removeEventListener('touchstart', () => {});
-      document.removeEventListener('touchmove', () => {});
-      document.removeEventListener('touchend', () => {});
+      // タッチイベントリスナーを正しく削除
+      if (touchHandlersRef.current.handleTouchStart) {
+        document.removeEventListener('touchstart', touchHandlersRef.current.handleTouchStart);
+      }
+      if (touchHandlersRef.current.handleTouchMove) {
+        document.removeEventListener('touchmove', touchHandlersRef.current.handleTouchMove);
+      }
+      if (touchHandlersRef.current.handleTouchEnd) {
+        document.removeEventListener('touchend', touchHandlersRef.current.handleTouchEnd);
+      }
+      
+      // 参照をクリア
+      touchHandlersRef.current = {};
 
       setIsStarted(false);
       console.log('AR session stopped successfully');
@@ -723,12 +798,15 @@ const MarkerARFrame = () => {
           }
         });
         
-        // 固定位置の要素で高いz-indexを持つものを削除
+        // 固定位置の要素で高いz-indexを持つものを削除（戻るボタンは除外）
         const fixedElements = document.querySelectorAll('*');
         fixedElements.forEach(el => {
           const style = getComputedStyle(el);
           if (style.position === 'fixed' && parseInt(style.zIndex) > 1000 && 
-              el !== document.querySelector('[aria-label="戻る"]')) {
+              el !== document.querySelector('[aria-label="戻る"]') &&
+              !el.matches('[class*="back-button"]') &&
+              !el.closest('[aria-label="戻る"]')) {
+            console.log('Removing high z-index element:', el);
             el.remove();
           }
         });
