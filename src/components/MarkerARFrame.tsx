@@ -829,53 +829,51 @@ const MarkerARFrame = () => {
       const button = buttonRef.current;
       if (!button) return;
 
-      // ネイティブイベントリスナーを登録
+      // シンプルな戻る処理（AR状態に関係なく動作）
+      const handleBackClick = async (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.log('🟢 Back button activated (simple)!');
+        
+        // ARが開始されている場合は停止
+        if (isStarted) {
+          console.log('🔄 Stopping AR before navigation...');
+          await stopAR();
+        }
+        
+        // 直接ナビゲーション
+        router.push('/start');
+      };
+
+      // ネイティブイベントリスナーを登録 - より確実な方法
       const handleTouchStart = (e: TouchEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
         console.log('🟢 Back button touchstart!');
-        handleBackNavigation();
-      };
-
-      const handleTouchEnd = (e: TouchEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('🟢 Back button touchend!');
-        handleBackNavigation();
-      };
-
-      const handlePointerDown = (e: PointerEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('🟢 Back button pointerdown!');
-        handleBackNavigation();
+        handleBackClick(e);
       };
 
       const handleClick = (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
         console.log('🟢 Back button click!');
-        handleBackNavigation();
+        handleBackClick(e);
+      };
+
+      const handlePointerDown = (e: PointerEvent) => {
+        console.log('🟢 Back button pointerdown!');
+        handleBackClick(e);
       };
 
       // より高い優先度でイベントリスナーを登録
       button.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-      button.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
-      button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
       button.addEventListener('click', handleClick, { passive: false, capture: true });
+      button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
 
       return () => {
         // クリーンアップ
         button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
-        button.removeEventListener('touchend', handleTouchEnd, { capture: true } as any);
+        button.removeEventListener('click', handleClick, { capture: true } as any);  
         button.removeEventListener('pointerdown', handlePointerDown, { capture: true } as any);
-        button.removeEventListener('click', handleClick, { capture: true } as any);
       };
-    }, []);
+    }, [isStarted]); // isStartedに依存させてAR状態の変化を監視
 
     return (
       <button
@@ -887,9 +885,20 @@ const MarkerARFrame = () => {
           background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
           boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
           position: 'fixed',
-          pointerEvents: 'auto'
+          pointerEvents: 'auto',
+          display: 'flex',
+          visibility: 'visible'
         }}
         aria-label="戻る"
+        onClick={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('🟢 React onClick triggered!');
+          if (isStarted) {
+            await stopAR();
+          }
+          router.push('/start');
+        }}
       >
         <ArrowLeft className="w-7 h-7 text-white" />
       </button>
