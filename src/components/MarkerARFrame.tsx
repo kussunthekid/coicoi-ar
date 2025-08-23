@@ -186,7 +186,7 @@ const MarkerARFrame = () => {
         return;
       }
 
-      // Add global styles to force fullscreen
+      // Add global styles to force fullscreen and hide MindAR UI
       const styleElement = document.createElement('style');
       styleElement.setAttribute('data-mindar-fullscreen', 'true');
       styleElement.textContent = `
@@ -197,18 +197,16 @@ const MarkerARFrame = () => {
           width: 100% !important;
           height: 100% !important;
         }
-        .mindar-ui-overlay {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-          z-index: 2 !important;
-        }
-        .mindar-ui-scanning {
-          width: 100% !important;
-          height: 100% !important;
-          z-index: 2 !important;
+        /* 強制的にMindARのUIを隠す */
+        .mindar-ui-overlay,
+        .mindar-ui-scanning,
+        .mindar-ui-loading,
+        .mindar-ui,
+        [class*="mindar-ui"] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
         }
         a-scene {
           position: fixed !important;
@@ -479,6 +477,28 @@ const MarkerARFrame = () => {
               if (mindarSystem && mindarSystem.controller) {
                 console.log('MindAR controller found:', mindarSystem.controller);
                 console.log('Number of targets:', mindarSystem.controller.maxTrack || 'unknown');
+                
+                // MindARのデフォルトUIを強制的に隠す
+                const hideMindARUI = () => {
+                  const mindARUIElements = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, [class*="mindar-ui"]');
+                  mindARUIElements.forEach(el => {
+                    (el as HTMLElement).style.display = 'none';
+                    el.remove();
+                  });
+                  if (mindARUIElements.length > 0) {
+                    console.log(`🚫 Removed ${mindARUIElements.length} MindAR default UI elements`);
+                  }
+                };
+                
+                // 初回実行とその後定期実行
+                setTimeout(hideMindARUI, 100);
+                const hideUIInterval = setInterval(hideMindARUI, 500);
+                
+                // 3秒後にインターバルを停止
+                setTimeout(() => {
+                  clearInterval(hideUIInterval);
+                  console.log('🚫 Stopped MindAR UI hiding interval');
+                }, 3000);
                 
                 // 手動でARシステムを開始
                 if (mindarSystem.start) {
