@@ -411,26 +411,35 @@ const MarkerARFrame = () => {
                   const currentPosition = gltfModel.getAttribute('position');
                   console.log(`Model ${index} current scale: ${currentScale}, position: ${currentPosition}`);
                   
-                  // より大きなスケールにして確実に見えるようにする
-                  gltfModel.setAttribute('scale', '2 2 2');
+                  // 初期設定のスケールを維持（coicoiとwkwkで異なるスケール）
+                  if (index === 0) {
+                    // Coicoi model
+                    gltfModel.setAttribute('scale', `${coicoiScale} ${coicoiScale} ${coicoiScale}`);
+                  } else if (index === 1) {
+                    // WKWK model  
+                    gltfModel.setAttribute('scale', `${wkwkScale} ${wkwkScale} ${wkwkScale}`);
+                  }
                   gltfModel.setAttribute('position', '0 0 0');
                   
-                  console.log(`✅ GLTF model ${index} should now be VISIBLE with scale 2x2x2`);
+                  console.log(`✅ GLTF model ${index} should now be VISIBLE with proper scale`);
                 }
                 
                 console.log(`✅ All elements in anchor ${index} should be visible now`);
               });
               
               anchor.addEventListener('targetLost', () => {
-                console.log(`❌ Target ${index} lost!`);
-                const model = anchor.querySelector('a-gltf-model');
+                console.log(`❌ Target ${index} lost! (but keeping model visible for simultaneous display)`);
+                // モデルの非表示処理を削除 - 2つのモデルが同時に表示できるように
+                // const model = anchor.querySelector('a-gltf-model');
+                // if (model) {
+                //   model.setAttribute('visible', 'false');
+                // }
+                
+                // デバッグ用の色変更のみ実行
                 const box = anchor.querySelector('a-box');
                 const cylinder = anchor.querySelector('a-cylinder');
                 const sphere = anchor.querySelector('a-sphere');
                 
-                if (model) {
-                  model.setAttribute('visible', 'false');
-                }
                 if (box) {
                   box.setAttribute('material', index === 0 ? 'color: red' : 'color: yellow');
                 }
