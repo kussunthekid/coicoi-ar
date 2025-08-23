@@ -835,10 +835,10 @@ const MarkerARFrame = () => {
   };
 
 
-  // カスタムスキャナーUIコンポーネント
+  // カスタムスキャナーUIコンポーネント - カメラ映像の上にオーバーレイ
   const CustomScanningUI = () => {
     return (
-      <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-[9999]">
+      <div className="fixed inset-0 z-[9999] pointer-events-none">
         {/* 停止ボタン */}
         <button
           type="button"
@@ -846,7 +846,7 @@ const MarkerARFrame = () => {
             console.log('❌ Stopping AR from custom UI');
             await stopAR();
           }}
-          className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 cursor-pointer z-[10000]"
+          className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 cursor-pointer z-[10000] pointer-events-auto"
           style={{
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}
@@ -855,30 +855,52 @@ const MarkerARFrame = () => {
           <X className="w-6 h-6 text-white font-bold" />
         </button>
 
-        {/* スキャナー画面のメッセージ */}
-        <div className="text-white text-center space-y-4">
-          <h2 className="text-2xl font-semibold">画像を認識中...</h2>
-          <p className="text-lg opacity-90">
-            認識させたい画像をカメラに向けてください
-          </p>
-          <div className="flex justify-center space-x-4 text-sm">
-            <span className="bg-white/20 px-3 py-1 rounded-full">
-              coicoi画像
-            </span>
-            <span className="bg-white/20 px-3 py-1 rounded-full">
-              wkwk画像
-            </span>
+        {/* 上部の説明テキスト */}
+        <div className="fixed top-6 left-6 right-20 text-white pointer-events-none">
+          <div className="bg-black/60 backdrop-blur-sm rounded-lg px-4 py-3">
+            <h2 className="text-lg font-semibold">画像を認識中...</h2>
+            <p className="text-sm opacity-90">
+              coicoi または wkwk の画像をカメラに向けてください
+            </p>
           </div>
         </div>
 
-        {/* スキャナーアニメーション */}
-        <div className="mt-8 relative">
-          <div className="w-64 h-64 border-2 border-white/50 rounded-lg relative">
-            <div className="absolute inset-0 border-2 border-cyan-400 rounded-lg animate-pulse"></div>
-            <div className="absolute top-0 left-0 w-6 h-6 border-l-2 border-t-2 border-cyan-400"></div>
-            <div className="absolute top-0 right-0 w-6 h-6 border-r-2 border-t-2 border-cyan-400"></div>
-            <div className="absolute bottom-0 left-0 w-6 h-6 border-l-2 border-b-2 border-cyan-400"></div>
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-r-2 border-b-2 border-cyan-400"></div>
+        {/* 中央のスキャナーフレーム */}
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
+          <div className="relative">
+            <div className="w-64 h-64 border-2 border-cyan-400/60 rounded-lg relative">
+              <div className="absolute inset-0 border-2 border-cyan-400 rounded-lg animate-pulse"></div>
+              {/* 四隅のマーカー */}
+              <div className="absolute -top-1 -left-1 w-8 h-8 border-l-4 border-t-4 border-cyan-400"></div>
+              <div className="absolute -top-1 -right-1 w-8 h-8 border-r-4 border-t-4 border-cyan-400"></div>
+              <div className="absolute -bottom-1 -left-1 w-8 h-8 border-l-4 border-b-4 border-cyan-400"></div>
+              <div className="absolute -bottom-1 -right-1 w-8 h-8 border-r-4 border-b-4 border-cyan-400"></div>
+              
+              {/* 中央のクロスヘア */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8">
+                  <div className="absolute w-full h-0.5 bg-cyan-400 top-1/2 transform -translate-y-1/2"></div>
+                  <div className="absolute h-full w-0.5 bg-cyan-400 left-1/2 transform -translate-x-1/2"></div>
+                </div>
+              </div>
+            </div>
+            
+            {/* スキャンライン */}
+            <div className="absolute inset-0 w-64 h-64 overflow-hidden rounded-lg">
+              <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-bounce"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* 下部のターゲット画像インジケーター */}
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-4 pointer-events-none">
+          <div className="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 flex items-center space-x-2">
+            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+            <span className="text-white text-sm">coicoi</span>
+          </div>
+          <div className="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 flex items-center space-x-2">
+            <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+            <span className="text-white text-sm">wkwk</span>
           </div>
         </div>
       </div>
