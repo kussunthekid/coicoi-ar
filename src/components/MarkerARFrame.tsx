@@ -31,6 +31,16 @@ const MarkerARFrame = () => {
   const currentWkwkScale = useRef(0.0095);
   const [isMounted, setIsMounted] = useState(false);
   
+  // デバッグ用: isStartedの変化を監視
+  useEffect(() => {
+    console.log('🔴 isStarted changed:', isStarted);
+  }, [isStarted]);
+  
+  // デバッグ用: isMountedの変化を監視  
+  useEffect(() => {
+    console.log('🔴 isMounted changed:', isMounted);
+  }, [isMounted]);
+  
   // タッチハンドラの参照を保持
   const touchHandlersRef = useRef<{
     handleTouchStart?: (e: TouchEvent) => void;
@@ -839,8 +849,22 @@ const MarkerARFrame = () => {
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
+      console.log('🔴 StopARButton useEffect called');
       const button = buttonRef.current;
-      if (!button) return;
+      if (!button) {
+        console.log('❌ StopARButton ref is null');
+        return;
+      }
+      
+      console.log('✅ StopARButton ref found:', button);
+      console.log('🔴 Button styles:', {
+        position: button.style.position,
+        zIndex: button.style.zIndex,
+        display: button.style.display,
+        visibility: button.style.visibility,
+        top: button.style.top,
+        right: button.style.right
+      });
 
       const handleStopClick = async (e: Event) => {
         e.preventDefault();
@@ -871,6 +895,7 @@ const MarkerARFrame = () => {
       button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
 
       return () => {
+        console.log('🔴 StopARButton cleanup called');
         // クリーンアップ
         button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
         button.removeEventListener('click', handleClick, { capture: true } as any);  
@@ -878,6 +903,8 @@ const MarkerARFrame = () => {
       };
     }, []);
 
+    console.log('🔴 StopARButton rendering...');
+    
     return (
       <button
         ref={buttonRef}
@@ -890,7 +917,9 @@ const MarkerARFrame = () => {
           position: 'fixed',
           pointerEvents: 'auto',
           display: 'flex',
-          visibility: 'visible'
+          visibility: 'visible',
+          top: '24px',
+          right: '24px'
         }}
         aria-label="AR停止"
         onClick={async (e) => {
@@ -1005,10 +1034,22 @@ const MarkerARFrame = () => {
       )}
 
       {/* AR停止ボタン（❌）- AR実行中のみ表示 */}
-      {isStarted && isMounted && typeof document !== 'undefined' && createPortal(
-        <StopARButton />,
-        document.body
-      )}
+      {(() => {
+        const shouldShow = isStarted && isMounted && typeof document !== 'undefined';
+        console.log('🔴 StopARButton render condition check:', {
+          isStarted,
+          isMounted,
+          documentExists: typeof document !== 'undefined',
+          shouldShow
+        });
+        
+        if (shouldShow) {
+          console.log('🔴 Creating StopARButton portal...');
+          return createPortal(<StopARButton />, document.body);
+        }
+        
+        return null;
+      })()}
 
 
 
