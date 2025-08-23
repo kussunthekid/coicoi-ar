@@ -197,12 +197,31 @@ const MarkerARFrame = () => {
           width: 100% !important;
           height: 100% !important;
         }
-        /* 標準 UI は完全に隠す */
+        /* 標準 UI は完全に隠す - より強力な設定 */
         .mindar-ui-overlay,
         .mindar-ui-scanning,
-        .mindar-ui-loading {
+        .mindar-ui-loading,
+        .mindar-ui-compatibility,
+        .mindar-ui-control,
+        [class*="mindar-ui-"],
+        [class*="mindar-ui"] {
           display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
           pointer-events: none !important;
+          position: absolute !important;
+          top: -9999px !important;
+          left: -9999px !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+        
+        /* MindARが生成する可能性のあるスキャナー要素も隠す */
+        div[style*="position: fixed"][style*="border"],
+        div[style*="position: absolute"][style*="border"],
+        div[style*="white"],
+        div[style*="rgb(255, 255, 255)"] {
+          display: none !important;
         }
         a-scene {
           position: fixed !important;
@@ -476,6 +495,44 @@ const MarkerARFrame = () => {
               if (mindarSystem && mindarSystem.controller) {
                 console.log('MindAR controller found:', mindarSystem.controller);
                 console.log('Number of targets:', mindarSystem.controller.maxTrack || 'unknown');
+                
+                // MindARのデフォルトUIを強制的に削除
+                const removeMindARUI = () => {
+                  // 全てのMindAR UI要素を検索して削除
+                  const uiElements = document.querySelectorAll(
+                    '.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, ' +
+                    '.mindar-ui-compatibility, .mindar-ui-control, ' +
+                    '[class*="mindar-ui"], [class*="mindar-ui-"], ' +
+                    'div[style*="border: 4px solid white"], ' +
+                    'div[style*="border: 4px solid rgb(255, 255, 255)"]'
+                  );
+                  
+                  uiElements.forEach(el => {
+                    console.log('Removing MindAR UI element:', el);
+                    el.remove();
+                  });
+                  
+                  // インラインスタイルで白い枠線を持つ要素も削除
+                  const allDivs = document.querySelectorAll('div');
+                  allDivs.forEach(div => {
+                    const style = div.getAttribute('style');
+                    if (style && (style.includes('border') && (style.includes('white') || style.includes('255, 255, 255')))) {
+                      // 戻るボタンは除外
+                      if (!div.closest('[aria-label="戻る"]')) {
+                        console.log('Removing div with white border:', div);
+                        div.remove();
+                      }
+                    }
+                  });
+                };
+                
+                // 即座に実行
+                removeMindARUI();
+                
+                // 遅延実行でも削除
+                setTimeout(removeMindARUI, 100);
+                setTimeout(removeMindARUI, 500);
+                setTimeout(removeMindARUI, 1000);
                 
                 
                 // 手動でARシステムを開始

@@ -1,10 +1,10 @@
 {
   "/_not-found/page": "/_not-found",
   "/favicon.ico/route": "/favicon.ico",
-  "/hands/page": "/hands",
   "/ar/page": "/ar",
+  "/marker/page": "/marker",
+  "/hands/page": "/hands",
   "/images/page": "/images",
   "/page": "/",
-  "/marker/page": "/marker",
   "/start/page": "/start"
 }
