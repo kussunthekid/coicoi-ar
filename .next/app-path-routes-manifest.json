@@ -3,8 +3,8 @@
   "/favicon.ico/route": "/favicon.ico",
   "/ar/page": "/ar",
   "/hands/page": "/hands",
-  "/start/page": "/start",
-  "/images/page": "/images",
   "/marker/page": "/marker",
-  "/page": "/"
+  "/page": "/",
+  "/start/page": "/start",
+  "/images/page": "/images"
 }

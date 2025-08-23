@@ -243,7 +243,7 @@ const MarkerARFrame = () => {
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; showStats: false; filterMinCF: 0.0001; filterBeta: 1000; uiInit: no;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiLoading: no; uiScanning: #custom-scanning-overlay; uiError: no; showStats: false; filterMinCF: 0.0001; filterBeta: 1000;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -286,7 +286,184 @@ const MarkerARFrame = () => {
         </a-scene>
       `;
 
-      containerRef.current.innerHTML = sceneHTML;
+      // カスタムスキャナーオーバーレイを先に追加
+      const customOverlay = `
+        <div id="custom-scanning-overlay" class="hidden">
+          <!-- 停止ボタン -->
+          <button
+            type="button"
+            id="custom-stop-button"
+            style="
+              position: fixed;
+              top: 24px;
+              right: 24px;
+              width: 56px;
+              height: 56px;
+              border-radius: 16px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: linear-gradient(135deg, #ec4899, #f43f5e);
+              border: 2px solid rgba(255, 255, 255, 0.4);
+              cursor: pointer;
+              z-index: 10000;
+              color: white;
+              font-size: 28px;
+              font-weight: bold;
+              box-shadow: 0 8px 25px rgba(236, 72, 153, 0.4);
+              transition: all 0.3s;
+            "
+            onmouseover="this.style.transform='scale(1.05)'"
+            onmouseout="this.style.transform='scale(1)'"
+            onclick="window.stopAR && window.stopAR()"
+          >
+            ×
+          </button>
+
+          <!-- 上部の説明テキスト -->
+          <div style="
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            right: 96px;
+            color: white;
+            pointer-events: none;
+          ">
+            <div style="
+              background: linear-gradient(135deg, rgba(147, 51, 234, 0.7), rgba(236, 72, 153, 0.7));
+              backdrop-filter: blur(16px);
+              border-radius: 16px;
+              padding: 24px;
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
+            ">
+              <h2 style="
+                font-size: 20px;
+                font-weight: bold;
+                background: linear-gradient(135deg, #fce7f3, #e879f9);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                margin: 0 0 8px 0;
+              ">
+                画像を認識中...
+              </h2>
+              <p style="
+                font-size: 14px;
+                opacity: 0.9;
+                margin: 0;
+                color: #fce7f3;
+              ">
+                coicoi または wkwk の画像をカメラに向けてください
+              </p>
+            </div>
+          </div>
+
+          <!-- 中央のスキャナーフレーム -->
+          <div style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+          ">
+            <div style="
+              width: 288px;
+              height: 288px;
+              border: 3px solid rgba(236, 72, 153, 0.6);
+              border-radius: 24px;
+              position: relative;
+              box-shadow: 0 0 50px rgba(236, 72, 153, 0.3);
+              animation: pulse 2s infinite;
+            ">
+              <!-- 四隅のマーカー -->
+              <div style="position: absolute; top: -8px; left: -8px; width: 40px; height: 40px; border-left: 4px solid #ec4899; border-top: 4px solid #ec4899; border-top-left-radius: 16px;"></div>
+              <div style="position: absolute; top: -8px; right: -8px; width: 40px; height: 40px; border-right: 4px solid #ec4899; border-top: 4px solid #ec4899; border-top-right-radius: 16px;"></div>
+              <div style="position: absolute; bottom: -8px; left: -8px; width: 40px; height: 40px; border-left: 4px solid #ec4899; border-bottom: 4px solid #ec4899; border-bottom-left-radius: 16px;"></div>
+              <div style="position: absolute; bottom: -8px; right: -8px; width: 40px; height: 40px; border-right: 4px solid #ec4899; border-bottom: 4px solid #ec4899; border-bottom-right-radius: 16px;"></div>
+              
+              <!-- 中央のクロスヘア -->
+              <div style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 40px;
+                height: 40px;
+              ">
+                <div style="position: absolute; width: 100%; height: 4px; background: linear-gradient(90deg, transparent, #ec4899, transparent); top: 50%; transform: translateY(-50%); border-radius: 2px;"></div>
+                <div style="position: absolute; height: 100%; width: 4px; background: linear-gradient(180deg, transparent, #ec4899, transparent); left: 50%; transform: translateX(-50%); border-radius: 2px;"></div>
+              </div>
+              
+              <!-- 内側の装飾フレーム -->
+              <div style="position: absolute; top: 16px; left: 16px; right: 16px; bottom: 16px; border: 1px solid rgba(192, 132, 252, 0.4); border-radius: 16px;"></div>
+            </div>
+          </div>
+
+          <!-- 下部のターゲット画像インジケーター -->
+          <div style="
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 24px;
+            pointer-events: none;
+          ">
+            <div style="
+              background: linear-gradient(135deg, rgba(236, 72, 153, 0.8), rgba(147, 51, 234, 0.8));
+              backdrop-filter: blur(16px);
+              border-radius: 16px;
+              padding: 12px 20px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              border: 1px solid rgba(236, 72, 153, 0.3);
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            ">
+              <div style="
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #ec4899, #f43f5e);
+                animation: pulse 1.5s infinite;
+              "></div>
+              <span style="color: #fce7f3; font-weight: 500;">coicoi</span>
+            </div>
+            <div style="
+              background: linear-gradient(135deg, rgba(147, 51, 234, 0.8), rgba(236, 72, 153, 0.8));
+              backdrop-filter: blur(16px);
+              border-radius: 16px;
+              padding: 12px 20px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              border: 1px solid rgba(147, 51, 234, 0.3);
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            ">
+              <div style="
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #9333ea, #ec4899);
+                animation: pulse 1.5s infinite;
+              "></div>
+              <span style="color: #e879f9; font-weight: 500;">wkwk</span>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          #custom-scanning-overlay.hidden {
+            display: none !important;
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        </style>
+      `;
+      
+      containerRef.current.innerHTML = customOverlay + sceneHTML;
       
       // Wait for scene to initialize
       await new Promise<void>((resolve) => {
@@ -478,98 +655,6 @@ const MarkerARFrame = () => {
                 console.log('MindAR controller found:', mindarSystem.controller);
                 console.log('Number of targets:', mindarSystem.controller.maxTrack || 'unknown');
                 
-                // MindARのデフォルトUIを完全に削除
-                const removeMindARUI = () => {
-                  console.log('🚫 Starting aggressive MindAR UI removal...');
-                  
-                  // すべてのMindAR関連要素を強制削除
-                  const allElements = document.querySelectorAll('*');
-                  let removedCount = 0;
-                  
-                  allElements.forEach(el => {
-                    // MindARの典型的なUI要素をチェック
-                    const classList = Array.from(el.classList);
-                    const hasMindarClass = classList.some(cls => cls.includes('mindar'));
-                    const hasMindarId = el.id && el.id.includes('mindar');
-                    
-                    // スタイルベースでMindARのUI要素を特定
-                    const style = getComputedStyle(el);
-                    const hasWhiteBorder = style.border.includes('white') || style.borderColor.includes('white') || 
-                                          style.border.includes('255, 255, 255') || style.borderColor.includes('255, 255, 255');
-                    const isOverlayLike = (style.position === 'fixed' || style.position === 'absolute') && 
-                                         (parseInt(style.zIndex) > 100);
-                    
-                    // MindARのスキャナーフレームの特徴
-                    const hasBoxShadow = style.boxShadow && style.boxShadow !== 'none';
-                    const hasTransform = style.transform && style.transform !== 'none';
-                    const isLargeElement = el.offsetWidth > 200 && el.offsetHeight > 200;
-                    
-                    // 保護すべき要素（戻るボタン、カスタムUI）
-                    const isProtected = el.closest('[aria-label="戻る"]') || 
-                                       el.closest('[aria-label="AR停止"]') ||
-                                       el.matches('.custom-scanning-ui') ||
-                                       el.closest('.custom-scanning-ui') ||
-                                       el.tagName === 'A-SCENE' ||
-                                       el.tagName === 'CANVAS' ||
-                                       el.tagName === 'VIDEO';
-                    
-                    // MindARのUI要素として判定される場合は削除
-                    if (!isProtected && (
-                        hasMindarClass || 
-                        hasMindarId || 
-                        (hasWhiteBorder && isOverlayLike) ||
-                        (hasBoxShadow && hasTransform && isLargeElement)
-                    )) {
-                      console.log('🚫 Removing MindAR UI element:', {
-                        tag: el.tagName,
-                        classes: classList,
-                        id: el.id,
-                        hasWhiteBorder,
-                        isOverlayLike,
-                        element: el
-                      });
-                      el.style.display = 'none !important';
-                      el.style.visibility = 'hidden !important';
-                      el.style.opacity = '0 !important';
-                      el.remove();
-                      removedCount++;
-                    }
-                  });
-                  
-                  console.log(`🚫 Removed ${removedCount} MindAR UI elements`);
-                  
-                  // さらに、知られているMindARのCSSクラスを強制的に無効化
-                  const forceHideStyle = document.createElement('style');
-                  forceHideStyle.textContent = `
-                    .mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading,
-                    .mindar-ui, [class*="mindar-ui"], [id*="mindar-ui"],
-                    div[style*="border: 4px solid white"],
-                    div[style*="border: 4px solid rgb(255, 255, 255)"] {
-                      display: none !important;
-                      visibility: hidden !important;
-                      opacity: 0 !important;
-                      pointer-events: none !important;
-                      position: absolute !important;
-                      top: -9999px !important;
-                      left: -9999px !important;
-                    }
-                  `;
-                  document.head.appendChild(forceHideStyle);
-                };
-                
-                // より頻繁に実行して完全に削除
-                removeMindARUI();
-                setTimeout(removeMindARUI, 100);
-                setTimeout(removeMindARUI, 300);
-                setTimeout(removeMindARUI, 500);
-                
-                const removeUIInterval = setInterval(removeMindARUI, 100);
-                
-                // 10秒後にインターバルを停止
-                setTimeout(() => {
-                  clearInterval(removeUIInterval);
-                  console.log('🚫 Stopped MindAR UI removal interval');
-                }, 10000);
                 
                 // 手動でARシステムを開始
                 if (mindarSystem.start) {
@@ -644,6 +729,9 @@ const MarkerARFrame = () => {
         }
       });
 
+      // グローバル関数として stopAR を公開（カスタムUIから呼び出すため）
+      (window as any).stopAR = stopAR;
+      
       setIsStarted(true);
       console.log('AR initialized successfully');
       
@@ -926,85 +1014,6 @@ const MarkerARFrame = () => {
   };
 
 
-  // カスタムスキャナーUIコンポーネント - カメラ映像の上にオーバーレイ
-  const CustomScanningUI = () => {
-    return (
-      <div className="custom-scanning-ui fixed inset-0 z-[9999] pointer-events-none">
-        {/* 停止ボタン */}
-        <button
-          type="button"
-          onClick={async () => {
-            console.log('❌ Stopping AR from custom UI');
-            await stopAR();
-          }}
-          className="fixed top-6 right-6 w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 border-2 border-white/40 transition-all duration-300 active:scale-90 hover:scale-105 cursor-pointer z-[10000] pointer-events-auto shadow-lg"
-          style={{
-            boxShadow: '0 8px 25px rgba(236, 72, 153, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
-          }}
-          aria-label="AR停止"
-        >
-          <X className="w-7 h-7 text-white font-bold drop-shadow-sm" />
-        </button>
-
-        {/* 上部の説明テキスト */}
-        <div className="fixed top-6 left-6 right-24 text-white pointer-events-none">
-          <div className="bg-gradient-to-r from-purple-900/70 to-pink-900/70 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/20 shadow-xl">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-pink-200 to-purple-200 bg-clip-text text-transparent">
-              画像を認識中...
-            </h2>
-            <p className="text-sm opacity-90 mt-1 text-pink-100">
-              coicoi または wkwk の画像をカメラに向けてください
-            </p>
-          </div>
-        </div>
-
-        {/* 中央のスキャナーフレーム */}
-        <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
-          <div className="relative">
-            <div className="w-72 h-72 border-3 border-pink-400/60 rounded-3xl relative shadow-2xl">
-              <div className="absolute inset-0 border-3 border-gradient-to-r from-pink-400 via-purple-400 to-pink-400 rounded-3xl animate-pulse"></div>
-              {/* 四隅のマーカー - 角丸デザイン */}
-              <div className="absolute -top-2 -left-2 w-10 h-10 border-l-4 border-t-4 border-pink-400 rounded-tl-2xl"></div>
-              <div className="absolute -top-2 -right-2 w-10 h-10 border-r-4 border-t-4 border-pink-400 rounded-tr-2xl"></div>
-              <div className="absolute -bottom-2 -left-2 w-10 h-10 border-l-4 border-b-4 border-pink-400 rounded-bl-2xl"></div>
-              <div className="absolute -bottom-2 -right-2 w-10 h-10 border-r-4 border-b-4 border-pink-400 rounded-br-2xl"></div>
-              
-              {/* 中央のクロスヘア - グラデーション */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-10 h-10">
-                  <div className="absolute w-full h-1 bg-gradient-to-r from-transparent via-pink-400 to-transparent top-1/2 transform -translate-y-1/2 rounded-full"></div>
-                  <div className="absolute h-full w-1 bg-gradient-to-b from-transparent via-pink-400 to-transparent left-1/2 transform -translate-x-1/2 rounded-full"></div>
-                </div>
-              </div>
-              
-              {/* 内側の装飾フレーム */}
-              <div className="absolute inset-4 border border-purple-300/40 rounded-2xl"></div>
-            </div>
-            
-            {/* スキャンライン */}
-            <div className="absolute inset-0 w-72 h-72 overflow-hidden rounded-3xl">
-              <div className="w-full h-1 bg-gradient-to-r from-transparent via-pink-400 via-purple-400 to-transparent animate-bounce shadow-lg"></div>
-            </div>
-            
-            {/* 回転する外側リング */}
-            <div className="absolute -inset-2 border-2 border-dashed border-purple-400/30 rounded-full animate-spin" style={{ animationDuration: '8s' }}></div>
-          </div>
-        </div>
-
-        {/* 下部のターゲット画像インジケーター */}
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-6 pointer-events-none">
-          <div className="bg-gradient-to-r from-pink-800/80 to-purple-800/80 backdrop-blur-md rounded-2xl px-5 py-3 flex items-center space-x-3 border border-pink-300/30 shadow-lg">
-            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-pink-400 to-rose-400 animate-pulse shadow-sm"></div>
-            <span className="text-pink-100 font-medium">coicoi</span>
-          </div>
-          <div className="bg-gradient-to-r from-purple-800/80 to-pink-800/80 backdrop-blur-md rounded-2xl px-5 py-3 flex items-center space-x-3 border border-purple-300/30 shadow-lg">
-            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 animate-pulse shadow-sm"></div>
-            <span className="text-purple-100 font-medium">wkwk</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // 戻るボタンコンポーネント
   const BackButton = () => {
@@ -1105,10 +1114,6 @@ const MarkerARFrame = () => {
         document.body
       )}
 
-      {/* カスタムスキャナーUI - AR実行中のみ表示 */}
-      {isStarted && (
-        <CustomScanningUI />
-      )}
 
 
 
