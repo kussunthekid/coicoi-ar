@@ -2,6 +2,7 @@
   "version": 1,
   "config": {
     "env": {},
+    "webpack": null,
     "eslint": {
       "ignoreDuringBuilds": true
     },
@@ -45,7 +46,7 @@
         256,
         384
       ],
-      "path": "/_next/image/",
+      "path": "/_next/image",
       "loader": "default",
       "loaderFile": "",
       "domains": [],
@@ -72,7 +73,7 @@
     },
     "basePath": "",
     "sassOptions": {},
-    "trailingSlash": true,
+    "trailingSlash": false,
     "i18n": null,
     "productionBrowserSourceMaps": false,
     "excludeDefaultMomentLocales": true,
