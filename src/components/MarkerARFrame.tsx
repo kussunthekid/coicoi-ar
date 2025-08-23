@@ -633,10 +633,35 @@ const MarkerARFrame = () => {
         {/* 戻るボタン - 円形グラスモーフィズムデザイン - 常に表示 */}
         <button
         type="button"
+        onMouseDown={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Back button mouse down (PC)!');
+          
+          try {
+            // ARが開始されている場合は停止
+            if (isStarted) {
+              await stopAR();
+              // 少し待ってからナビゲーション
+              setTimeout(() => {
+                console.log('Navigating to /start');
+                router.push('/start');
+              }, 200);
+            } else {
+              // ARが開始されていない場合は直接ナビゲーション
+              console.log('Direct navigation to /start');
+              router.push('/start');
+            }
+          } catch (error) {
+            console.error('Error during cleanup:', error);
+            // エラーが発生してもナビゲーションは実行
+            router.push('/start');
+          }
+        }}
         onTouchStart={async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          console.log('Back button touched!');
+          console.log('Back button touch start (Mobile)!');
           
           try {
             // ARが開始されている場合は停止
@@ -661,7 +686,7 @@ const MarkerARFrame = () => {
         onClick={async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          console.log('Back button clicked!');
+          console.log('Back button clicked (Fallback)!');
           
           try {
             // ARが開始されている場合は停止
@@ -683,13 +708,16 @@ const MarkerARFrame = () => {
             router.push('/start');
           }
         }}
-          className="fixed bottom-6 left-6 w-14 h-14 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/40 transition-all duration-200 active:scale-95 hover:scale-105 pointer-events-auto"
+          className="fixed bottom-6 left-6 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 pointer-events-auto cursor-pointer"
           style={{
             pointerEvents: 'auto',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent',
-            background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.6), rgba(55, 65, 81, 0.4))',
-            boxShadow: '0 8px 32px rgba(75, 85, 99, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+            userSelect: 'none',
+            background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
+            boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+            WebkitUserSelect: 'none',
+            MozUserSelect: 'none'
           }}
           aria-label="戻る"
         >
