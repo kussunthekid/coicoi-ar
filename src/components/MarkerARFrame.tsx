@@ -154,12 +154,12 @@ const MarkerARFrame = () => {
           left: 0 !important;
           width: 100% !important;
           height: 100% !important;
-          pointer-events: none !important;
+          z-index: 2 !important;
         }
         .mindar-ui-scanning {
           width: 100% !important;
           height: 100% !important;
-          pointer-events: none !important;
+          z-index: 2 !important;
         }
         a-scene {
           position: fixed !important;
@@ -171,7 +171,6 @@ const MarkerARFrame = () => {
           margin: 0 !important;
           padding: 0 !important;
           z-index: 1 !important;
-          pointer-events: none !important;
         }
         a-scene canvas {
           position: fixed !important;
@@ -181,10 +180,6 @@ const MarkerARFrame = () => {
           height: 100% !important;
           display: block !important;
           z-index: 1 !important;
-          pointer-events: none !important;
-        }
-        a-scene * {
-          pointer-events: none !important;
         }
         video {
           position: fixed !important;
@@ -503,6 +498,7 @@ const MarkerARFrame = () => {
       
       // ピンチジェスチャーの処理を追加
       const handleTouchStart = (e: TouchEvent) => {
+        // ピンチジェスチャーのみ処理（他のタッチイベントは妨げない）
         if (e.touches.length === 2) {
           const touch1 = e.touches[0];
           const touch2 = e.touches[1];
@@ -682,107 +678,35 @@ const MarkerARFrame = () => {
         style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', margin: 0, padding: 0, zIndex: 1 }}
       />
 
-      {/* ボタン専用コンテナ - 最前面に配置 */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 2147483647, isolation: 'isolate' }}
-      >
-        {/* 戻るボタン - 円形グラスモーフィズムデザイン - 常に表示 */}
-        <button
+      {/* 戻るボタン - 最前面に配置 */}
+      <button
         type="button"
-        onMouseDown={async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('Back button mouse down (PC)!');
+        onClick={async () => {
+          console.log('Back button clicked!');
           
           try {
             // ARが開始されている場合は停止
             if (isStarted) {
               await stopAR();
-              // 少し待ってからナビゲーション
-              setTimeout(() => {
-                console.log('Navigating to /start');
-                router.push('/start');
-              }, 200);
-            } else {
-              // ARが開始されていない場合は直接ナビゲーション
-              console.log('Direct navigation to /start');
-              router.push('/start');
             }
+            // 直接ナビゲーション
+            router.push('/start');
           } catch (error) {
             console.error('Error during cleanup:', error);
             // エラーが発生してもナビゲーションは実行
             router.push('/start');
           }
         }}
-        onTouchStart={async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('Back button touch start (Mobile)!');
-          
-          try {
-            // ARが開始されている場合は停止
-            if (isStarted) {
-              await stopAR();
-              // 少し待ってからナビゲーション
-              setTimeout(() => {
-                console.log('Navigating to /start');
-                router.push('/start');
-              }, 200);
-            } else {
-              // ARが開始されていない場合は直接ナビゲーション
-              console.log('Direct navigation to /start');
-              router.push('/start');
-            }
-          } catch (error) {
-            console.error('Error during cleanup:', error);
-            // エラーが発生してもナビゲーションは実行
-            router.push('/start');
-          }
+        className="fixed bottom-6 left-6 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
+        style={{
+          zIndex: 2147483647,
+          background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
+          boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
         }}
-        onClick={async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('Back button clicked (Fallback)!');
-          
-          try {
-            // ARが開始されている場合は停止
-            if (isStarted) {
-              await stopAR();
-              // 少し待ってからナビゲーション
-              setTimeout(() => {
-                console.log('Navigating to /start');
-                router.push('/start');
-              }, 200);
-            } else {
-              // ARが開始されていない場合は直接ナビゲーション
-              console.log('Direct navigation to /start');
-              router.push('/start');
-            }
-          } catch (error) {
-            console.error('Error during cleanup:', error);
-            // エラーが発生してもナビゲーションは実行
-            router.push('/start');
-          }
-        }}
-          className="fixed bottom-6 left-6 w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 pointer-events-auto cursor-pointer"
-          style={{
-            pointerEvents: 'auto',
-            touchAction: 'manipulation',
-            WebkitTapHighlightColor: 'transparent',
-            userSelect: 'none',
-            background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
-            boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-            zIndex: 2147483647,
-            position: 'relative'
-          }}
-          aria-label="戻る"
-        >
-          <ArrowLeft className="w-7 h-7 text-white" />
-        </button>
-      </div>
+        aria-label="戻る"
+      >
+        <ArrowLeft className="w-7 h-7 text-white" />
+      </button>
 
 
       {/* Instructions - AR中のみ表示 */}
