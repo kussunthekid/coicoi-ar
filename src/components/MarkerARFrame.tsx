@@ -241,7 +241,7 @@ const MarkerARFrame = () => {
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiScanning: false; uiLoading: false; uiError: false; showStats: false; filterMinCF: 0.0001; filterBeta: 1000;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: no; uiScanning: no; uiLoading: no; uiError: no; showStats: no; filterMinCF: 0.0001; filterBeta: 1000;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
