@@ -243,7 +243,7 @@ const MarkerARFrame = () => {
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; showStats: false; filterMinCF: 0.0001; filterBeta: 1000;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; showStats: false; filterMinCF: 0.0001; filterBeta: 1000; uiInit: no;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -480,57 +480,96 @@ const MarkerARFrame = () => {
                 
                 // MindARのデフォルトUIを完全に削除
                 const removeMindARUI = () => {
-                  // より広範囲なセレクタでMindAR関連要素をすべて削除
-                  const selectors = [
-                    '.mindar-ui-overlay', '.mindar-ui-scanning', '.mindar-ui-loading', 
-                    '.mindar-ui', '[class*="mindar-ui"]', '[id*="mindar-ui"]',
-                    // MindARが動的に作成する可能性のある要素
-                    'div[style*="position: absolute"]', 
-                    'div[style*="position: fixed"]',
-                    // 白い枠線を持つ要素を特定
-                    'div[style*="border"]', 'canvas[style*="border"]'
-                  ];
+                  console.log('🚫 Starting aggressive MindAR UI removal...');
                   
+                  // すべてのMindAR関連要素を強制削除
+                  const allElements = document.querySelectorAll('*');
                   let removedCount = 0;
-                  selectors.forEach(selector => {
-                    const elements = document.querySelectorAll(selector);
-                    elements.forEach(el => {
-                      // MindARのスキャナーフレームかどうかチェック
-                      const style = getComputedStyle(el);
-                      const hasWhiteBorder = style.borderColor.includes('255') || style.borderColor.includes('white');
-                      const isFixedPosition = style.position === 'fixed' || style.position === 'absolute';
-                      const isHighZIndex = parseInt(style.zIndex) > 1000;
-                      
-                      // 戻るボタンやカスタムUIではない場合のみ削除
-                      if ((hasWhiteBorder || isFixedPosition || isHighZIndex) && 
-                          !el.closest('[aria-label="戻る"]') && 
-                          !el.closest('[aria-label="AR停止"]') &&
-                          !el.matches('.custom-scanning-ui') &&
-                          !el.closest('.custom-scanning-ui')) {
-                        console.log('🚫 Removing suspected MindAR UI element:', el);
-                        el.remove();
-                        removedCount++;
-                      }
-                    });
+                  
+                  allElements.forEach(el => {
+                    // MindARの典型的なUI要素をチェック
+                    const classList = Array.from(el.classList);
+                    const hasMindarClass = classList.some(cls => cls.includes('mindar'));
+                    const hasMindarId = el.id && el.id.includes('mindar');
+                    
+                    // スタイルベースでMindARのUI要素を特定
+                    const style = getComputedStyle(el);
+                    const hasWhiteBorder = style.border.includes('white') || style.borderColor.includes('white') || 
+                                          style.border.includes('255, 255, 255') || style.borderColor.includes('255, 255, 255');
+                    const isOverlayLike = (style.position === 'fixed' || style.position === 'absolute') && 
+                                         (parseInt(style.zIndex) > 100);
+                    
+                    // MindARのスキャナーフレームの特徴
+                    const hasBoxShadow = style.boxShadow && style.boxShadow !== 'none';
+                    const hasTransform = style.transform && style.transform !== 'none';
+                    const isLargeElement = el.offsetWidth > 200 && el.offsetHeight > 200;
+                    
+                    // 保護すべき要素（戻るボタン、カスタムUI）
+                    const isProtected = el.closest('[aria-label="戻る"]') || 
+                                       el.closest('[aria-label="AR停止"]') ||
+                                       el.matches('.custom-scanning-ui') ||
+                                       el.closest('.custom-scanning-ui') ||
+                                       el.tagName === 'A-SCENE' ||
+                                       el.tagName === 'CANVAS' ||
+                                       el.tagName === 'VIDEO';
+                    
+                    // MindARのUI要素として判定される場合は削除
+                    if (!isProtected && (
+                        hasMindarClass || 
+                        hasMindarId || 
+                        (hasWhiteBorder && isOverlayLike) ||
+                        (hasBoxShadow && hasTransform && isLargeElement)
+                    )) {
+                      console.log('🚫 Removing MindAR UI element:', {
+                        tag: el.tagName,
+                        classes: classList,
+                        id: el.id,
+                        hasWhiteBorder,
+                        isOverlayLike,
+                        element: el
+                      });
+                      el.style.display = 'none !important';
+                      el.style.visibility = 'hidden !important';
+                      el.style.opacity = '0 !important';
+                      el.remove();
+                      removedCount++;
+                    }
                   });
                   
-                  if (removedCount > 0) {
-                    console.log(`🚫 Removed ${removedCount} suspected MindAR UI elements`);
-                  }
+                  console.log(`🚫 Removed ${removedCount} MindAR UI elements`);
+                  
+                  // さらに、知られているMindARのCSSクラスを強制的に無効化
+                  const forceHideStyle = document.createElement('style');
+                  forceHideStyle.textContent = `
+                    .mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading,
+                    .mindar-ui, [class*="mindar-ui"], [id*="mindar-ui"],
+                    div[style*="border: 4px solid white"],
+                    div[style*="border: 4px solid rgb(255, 255, 255)"] {
+                      display: none !important;
+                      visibility: hidden !important;
+                      opacity: 0 !important;
+                      pointer-events: none !important;
+                      position: absolute !important;
+                      top: -9999px !important;
+                      left: -9999px !important;
+                    }
+                  `;
+                  document.head.appendChild(forceHideStyle);
                 };
                 
                 // より頻繁に実行して完全に削除
-                setTimeout(removeMindARUI, 50);
-                const removeUIInterval = setInterval(removeMindARUI, 200);
+                removeMindARUI();
+                setTimeout(removeMindARUI, 100);
+                setTimeout(removeMindARUI, 300);
+                setTimeout(removeMindARUI, 500);
                 
-                // 5秒後にインターバルを停止
+                const removeUIInterval = setInterval(removeMindARUI, 100);
+                
+                // 10秒後にインターバルを停止
                 setTimeout(() => {
                   clearInterval(removeUIInterval);
                   console.log('🚫 Stopped MindAR UI removal interval');
-                  
-                  // 最終確認として、カスタムUIを表示
-                  console.log('✅ Now safe to show custom UI');
-                }, 5000);
+                }, 10000);
                 
                 // 手動でARシステムを開始
                 if (mindarSystem.start) {
@@ -890,7 +929,7 @@ const MarkerARFrame = () => {
   // カスタムスキャナーUIコンポーネント - カメラ映像の上にオーバーレイ
   const CustomScanningUI = () => {
     return (
-      <div className="fixed inset-0 z-[9999] pointer-events-none">
+      <div className="custom-scanning-ui fixed inset-0 z-[9999] pointer-events-none">
         {/* 停止ボタン */}
         <button
           type="button"
