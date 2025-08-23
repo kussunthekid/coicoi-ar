@@ -223,6 +223,7 @@ const MarkerARFrame = () => {
           height: 100% !important;
           display: block !important;
           z-index: 1 !important;
+          pointer-events: none !important;
         }
         video {
           position: fixed !important;
@@ -231,6 +232,7 @@ const MarkerARFrame = () => {
           width: 100% !important;
           height: 100% !important;
           object-fit: cover !important;
+          pointer-events: none !important;
         }
       `;
       document.head.appendChild(styleElement);
@@ -519,22 +521,15 @@ const MarkerARFrame = () => {
               setError('カメラ初期化に失敗しました');
             });
             
-            // Force all canvases to fullscreen
+            // Force pointer-events: none on canvases and videos
             const canvases = scene.querySelectorAll('canvas');
             canvases.forEach((canvas: any) => {
-              canvas.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; display: block !important;';
+              canvas.style.pointerEvents = 'none';
             });
             
-            // Force video elements to fullscreen
             const videos = document.querySelectorAll('video');
             videos.forEach((video: any) => {
-              video.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; object-fit: cover !important;';
-            });
-            
-            // Force MindAR UI elements to fullscreen
-            const mindarUI = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning');
-            mindarUI.forEach((element: any) => {
-              element.style.cssText = 'position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important;';
+              video.style.pointerEvents = 'none';
             });
             
             // Force resize to ensure proper dimensions
@@ -613,10 +608,10 @@ const MarkerARFrame = () => {
         handleTouchEnd
       };
       
-      // イベントリスナーを追加
-      document.addEventListener('touchstart', handleTouchStart);
-      document.addEventListener('touchmove', handleTouchMove);
-      document.addEventListener('touchend', handleTouchEnd);
+      // イベントリスナーを追加（passive化でスクロール競合を回避）
+      document.addEventListener('touchstart', handleTouchStart, { passive: true });
+      document.addEventListener('touchmove', handleTouchMove, { passive: true });
+      document.addEventListener('touchend', handleTouchEnd, { passive: true });
       
     } catch (err) {
       console.error('AR initialization failed:', err);
@@ -759,15 +754,15 @@ const MarkerARFrame = () => {
       document.body.style.cssText = '';
       document.documentElement.style.cssText = '';
 
-      // タッチイベントリスナーを正しく削除
+      // タッチイベントリスナーを正しく削除（passive化に対応）
       if (touchHandlersRef.current.handleTouchStart) {
-        document.removeEventListener('touchstart', touchHandlersRef.current.handleTouchStart);
+        document.removeEventListener('touchstart', touchHandlersRef.current.handleTouchStart, { passive: true } as any);
       }
       if (touchHandlersRef.current.handleTouchMove) {
-        document.removeEventListener('touchmove', touchHandlersRef.current.handleTouchMove);
+        document.removeEventListener('touchmove', touchHandlersRef.current.handleTouchMove, { passive: true } as any);
       }
       if (touchHandlersRef.current.handleTouchEnd) {
-        document.removeEventListener('touchend', touchHandlersRef.current.handleTouchEnd);
+        document.removeEventListener('touchend', touchHandlersRef.current.handleTouchEnd, { passive: true } as any);
       }
       
       // 参照をクリア
@@ -823,12 +818,12 @@ const MarkerARFrame = () => {
         });
       }, 100);
       
-      // 直接ナビゲーション
-      router.push('/start');
+      // 直接ナビゲーション（履歴を増やさない）
+      router.replace('/start');
     } catch (error) {
       console.error('Error during cleanup:', error);
-      // エラーが発生してもナビゲーションは実行
-      router.push('/start');
+      // エラーが発生してもナビゲーションは実行（履歴を増やさない）
+      router.replace('/start');
     }
   };
 
@@ -927,8 +922,8 @@ const MarkerARFrame = () => {
           await stopAR();
         }
         
-        // 直接ナビゲーション
-        router.push('/start');
+        // 直接ナビゲーション（履歴を増やさない）
+        router.replace('/start');
       };
 
       // ネイティブイベントリスナーを登録 - より確実な方法
@@ -982,7 +977,7 @@ const MarkerARFrame = () => {
           if (isStarted) {
             await stopAR();
           }
-          router.push('/start');
+          router.replace('/start');
         }}
       >
         <ArrowLeft className="w-7 h-7 text-white" />
