@@ -240,79 +240,11 @@ const MarkerARFrame = () => {
       `;
       document.head.appendChild(styleElement);
 
-      // カスタムスキャナーUIのCSSスタイルを追加
-      const customUIStyle = document.createElement('style');
-      customUIStyle.setAttribute('data-custom-scanning-ui', 'true');
-      customUIStyle.textContent = `
-        #custom-scanning-overlay {
-          position: fixed !important;
-          top: 0 !important;
-          left: 0 !important;
-          width: 100% !important;
-          height: 100% !important;
-          background: rgba(0, 0, 0, 0.8) !important;
-          display: flex !important;
-          flex-direction: column !important;
-          align-items: center !important;
-          justify-content: center !important;
-          z-index: 9999 !important;
-        }
-        #custom-scanning-overlay.hidden {
-          display: none !important;
-        }
-        #stop-ar-custom-btn {
-          position: absolute !important;
-          top: 20px !important;
-          right: 20px !important;
-          width: 48px !important;
-          height: 48px !important;
-          border-radius: 50% !important;
-          background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.8)) !important;
-          border: 2px solid rgba(255, 255, 255, 0.5) !important;
-          color: white !important;
-          font-size: 20px !important;
-          font-weight: bold !important;
-          cursor: pointer !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-          transition: all 0.2s ease !important;
-          z-index: 10000 !important;
-        }
-        #stop-ar-custom-btn:hover {
-          transform: scale(1.1) !important;
-        }
-        .scanning-instructions {
-          color: white !important;
-          text-align: center !important;
-          font-size: 18px !important;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-          margin-top: 40px !important;
-        }
-      `;
-      document.head.appendChild(customUIStyle);
-
-      // カスタムスキャナーUIを作成
-      const customScanningOverlay = document.createElement('div');
-      customScanningOverlay.id = 'custom-scanning-overlay';
-      customScanningOverlay.className = 'hidden';
-      customScanningOverlay.innerHTML = `
-        <button id="stop-ar-custom-btn" type="button">✕</button>
-        <div class="scanning-instructions">
-          <p>認識させたい画像をカメラに向けてください</p>
-          <p style="font-size: 14px; opacity: 0.8; margin-top: 10px;">両方の画像を認識中...</p>
-        </div>
-      `;
-      
-      // カスタムオーバーレイをbodyに追加
-      document.body.appendChild(customScanningOverlay);
-      console.log('✅ Custom scanning overlay created and added to DOM');
 
       // Create A-Frame scene HTML - 公式例に基づいた正しい実装
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; uiScanning: #custom-scanning-overlay;"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false;"
           color-space="sRGB"
           renderer="colorManagement: true, physicallyCorrectLights"
           vr-mode-ui="enabled: false"
@@ -368,52 +300,6 @@ const MarkerARFrame = () => {
             console.log('Scene element:', scene);
             console.log('Scene innerHTML preview:', scene.innerHTML.substring(0, 200));
             
-            // カスタムオーバーレイの状態をチェック
-            const customOverlay = document.getElementById('custom-scanning-overlay');
-            console.log('🔍 Custom overlay found:', !!customOverlay);
-            if (customOverlay) {
-              console.log('🔍 Custom overlay classes:', customOverlay.className);
-              console.log('🔍 Custom overlay display:', getComputedStyle(customOverlay).display);
-              console.log('🔍 Custom overlay visibility:', getComputedStyle(customOverlay).visibility);
-              
-              // 強制的に表示してテスト
-              setTimeout(() => {
-                customOverlay.classList.remove('hidden');
-                console.log('🔍 Temporarily removed hidden class for testing');
-                
-                setTimeout(() => {
-                  customOverlay.classList.add('hidden');
-                  console.log('🔍 Added hidden class back');
-                }, 3000);
-              }, 2000);
-            }
-
-            // カスタムボタンのイベントリスナーを設定
-            const stopButton = document.getElementById('stop-ar-custom-btn');
-            if (stopButton) {
-              console.log('✅ Custom stop button found, setting up event listeners...');
-              
-              const handleStopClick = async (e: Event) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('❌ Custom stop button clicked!');
-                await stopAR();
-              };
-              
-              stopButton.addEventListener('click', handleStopClick);
-              stopButton.addEventListener('touchstart', handleStopClick, { passive: false });
-              stopButton.addEventListener('pointerdown', handleStopClick);
-              
-              // ホバー効果を追加
-              stopButton.addEventListener('mouseenter', () => {
-                (stopButton as HTMLElement).style.transform = 'scale(1.1)';
-              });
-              stopButton.addEventListener('mouseleave', () => {
-                (stopButton as HTMLElement).style.transform = 'scale(1)';
-              });
-            } else {
-              console.warn('❌ Custom stop button not found');
-            }
             
             // Test basic A-Frame rendering
             const testBox = scene.querySelector('a-box');
@@ -834,19 +720,6 @@ const MarkerARFrame = () => {
         styleElement.remove();
       }
 
-      // カスタムスキャナーオーバーレイを削除
-      const customOverlay = document.getElementById('custom-scanning-overlay');
-      if (customOverlay) {
-        customOverlay.remove();
-        console.log('Removed custom scanning overlay');
-      }
-      
-      // カスタムUIスタイルを削除
-      const customUIStyle = document.querySelector('style[data-custom-scanning-ui]');
-      if (customUIStyle) {
-        customUIStyle.remove();
-        console.log('Removed custom scanning UI styles');
-      }
 
       // MindAR UIオーバーレイを強制削除
       const mindarOverlays = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, .mindar-ui, .mindar-camera');
@@ -961,6 +834,77 @@ const MarkerARFrame = () => {
   };
 
 
+  // AR停止（❌）ボタンコンポーネント
+  const StopARButton = () => {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+      const button = buttonRef.current;
+      if (!button) return;
+
+      const handleStopClick = async (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.log('❌ Stop AR button clicked!');
+        await stopAR();
+      };
+
+      const handleTouchStart = (e: TouchEvent) => {
+        console.log('❌ Stop AR button touchstart!');
+        handleStopClick(e);
+      };
+
+      const handleClick = (e: MouseEvent) => {
+        console.log('❌ Stop AR button click!');
+        handleStopClick(e);
+      };
+
+      const handlePointerDown = (e: PointerEvent) => {
+        console.log('❌ Stop AR button pointerdown!');
+        handleStopClick(e);
+      };
+
+      // より高い優先度でイベントリスナーを登録
+      button.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+      button.addEventListener('click', handleClick, { passive: false, capture: true });
+      button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
+
+      return () => {
+        // クリーンアップ
+        button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
+        button.removeEventListener('click', handleClick, { capture: true } as any);  
+        button.removeEventListener('pointerdown', handlePointerDown, { capture: true } as any);
+      };
+    }, []);
+
+    return (
+      <button
+        ref={buttonRef}
+        type="button"
+        className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
+        style={{
+          zIndex: 2147483647,
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.8))',
+          boxShadow: '0 12px 40px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+          position: 'fixed',
+          pointerEvents: 'auto',
+          display: 'flex',
+          visibility: 'visible'
+        }}
+        aria-label="AR停止"
+        onClick={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('❌ React onClick triggered!');
+          await stopAR();
+        }}
+      >
+        <X className="w-6 h-6 text-white font-bold" />
+      </button>
+    );
+  };
+
   // 戻るボタンコンポーネント
   const BackButton = () => {
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -1057,6 +1001,12 @@ const MarkerARFrame = () => {
       {/* 戻るボタンをポータルでbody直下に描画 */}
       {isMounted && typeof document !== 'undefined' && createPortal(
         <BackButton />,
+        document.body
+      )}
+
+      {/* AR停止ボタン（❌）- AR実行中のみ表示 */}
+      {isStarted && isMounted && typeof document !== 'undefined' && createPortal(
+        <StopARButton />,
         document.body
       )}
 
