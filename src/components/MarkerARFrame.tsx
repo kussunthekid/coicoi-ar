@@ -643,16 +643,39 @@ const MarkerARFrame = () => {
         styleElement.remove();
       }
 
-      // MindAR UIオーバーレイを削除
-      const mindarOverlays = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, .mindar-ui');
+      // MindAR UIオーバーレイを強制削除
+      const mindarOverlays = document.querySelectorAll('.mindar-ui-overlay, .mindar-ui-scanning, .mindar-ui-loading, .mindar-ui, .mindar-camera');
       mindarOverlays.forEach(overlay => {
+        console.log('Removing MindAR UI element:', overlay.className);
         overlay.remove();
       });
       
       // A-Frame関連の要素をすべて削除
       const aframeElements = document.querySelectorAll('a-scene, a-assets, a-camera, a-entity');
       aframeElements.forEach(el => {
+        console.log('Removing A-Frame element:', el.tagName);
         el.remove();
+      });
+
+      // MindARのスタイルとオーバーレイを強制削除
+      const allElements = document.querySelectorAll('*');
+      allElements.forEach(el => {
+        if (el.classList.contains('mindar-ui-overlay') || 
+            el.classList.contains('mindar-ui-scanning') || 
+            el.classList.contains('mindar-ui-loading') ||
+            el.style.position === 'fixed' && el.style.zIndex === '10000') {
+          console.log('Force removing MindAR overlay:', el);
+          el.remove();
+        }
+      });
+      
+      // 残留するcanvas要素を削除
+      const canvasElements = document.querySelectorAll('canvas');
+      canvasElements.forEach(canvas => {
+        if (canvas.width > 100 && canvas.height > 100) { // ARカメラのcanvasを想定
+          console.log('Removing AR canvas element');
+          canvas.remove();
+        }
       });
 
       // body/htmlスタイルをリセット
@@ -676,13 +699,41 @@ const MarkerARFrame = () => {
 
   // 戻る処理関数
   const handleBackNavigation = async () => {
-    console.log('Back button activated!');
+    console.log('🔙 Back button activated!');
     
     try {
       // ARが開始されている場合は停止
       if (isStarted) {
+        console.log('🔄 Stopping AR before navigation...');
         await stopAR();
       }
+      
+      // 強制的にMindARの残留要素を削除
+      console.log('🧹 Force cleaning MindAR elements...');
+      setTimeout(() => {
+        // すべてのMindAR関連要素を強制削除
+        const mindarElements = document.querySelectorAll('[class*="mindar"], [id*="mindar"]');
+        mindarElements.forEach(el => el.remove());
+        
+        // ARに関連するcanvas要素を削除
+        const canvases = document.querySelectorAll('canvas');
+        canvases.forEach(canvas => {
+          if (canvas.width > 100 && canvas.height > 100) {
+            canvas.remove();
+          }
+        });
+        
+        // 固定位置の要素で高いz-indexを持つものを削除
+        const fixedElements = document.querySelectorAll('*');
+        fixedElements.forEach(el => {
+          const style = getComputedStyle(el);
+          if (style.position === 'fixed' && parseInt(style.zIndex) > 1000 && 
+              el !== document.querySelector('[aria-label="戻る"]')) {
+            el.remove();
+          }
+        });
+      }, 100);
+      
       // 直接ナビゲーション
       router.push('/start');
     } catch (error) {
@@ -701,37 +752,50 @@ const MarkerARFrame = () => {
       if (!button) return;
 
       // ネイティブイベントリスナーを登録
-      const handlePointerDown = (e: PointerEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('Back button pointerdown!');
-        handleBackNavigation();
-      };
-
       const handleTouchStart = (e: TouchEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Back button touchstart!');
+        e.stopImmediatePropagation();
+        console.log('🟢 Back button touchstart!');
+        handleBackNavigation();
+      };
+
+      const handleTouchEnd = (e: TouchEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.log('🟢 Back button touchend!');
+        handleBackNavigation();
+      };
+
+      const handlePointerDown = (e: PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.log('🟢 Back button pointerdown!');
         handleBackNavigation();
       };
 
       const handleClick = (e: MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Back button click!');
+        e.stopImmediatePropagation();
+        console.log('🟢 Back button click!');
         handleBackNavigation();
       };
 
-      // パッシブではないイベントリスナーを登録
-      button.addEventListener('pointerdown', handlePointerDown, { passive: false });
-      button.addEventListener('touchstart', handleTouchStart, { passive: false });
-      button.addEventListener('click', handleClick, { passive: false });
+      // より高い優先度でイベントリスナーを登録
+      button.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+      button.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
+      button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
+      button.addEventListener('click', handleClick, { passive: false, capture: true });
 
       return () => {
         // クリーンアップ
-        button.removeEventListener('pointerdown', handlePointerDown);
-        button.removeEventListener('touchstart', handleTouchStart);
-        button.removeEventListener('click', handleClick);
+        button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
+        button.removeEventListener('touchend', handleTouchEnd, { capture: true } as any);
+        button.removeEventListener('pointerdown', handlePointerDown, { capture: true } as any);
+        button.removeEventListener('click', handleClick, { capture: true } as any);
       };
     }, []);
 
