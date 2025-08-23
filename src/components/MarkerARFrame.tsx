@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { ArrowLeft, Camera, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 declare global {
@@ -830,6 +830,84 @@ const MarkerARFrame = () => {
     }
   };
 
+  // AR停止（❌）ボタン処理
+  const handleStopAR = async () => {
+    console.log('❌ Stop AR button activated!');
+    
+    try {
+      await stopAR();
+      console.log('✅ AR stopped successfully');
+    } catch (error) {
+      console.error('Error stopping AR:', error);
+    }
+  };
+
+  // AR停止ボタンコンポーネント
+  const StopARButton = () => {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+      const button = buttonRef.current;
+      if (!button) return;
+
+      const handleClick = async (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.log('❌ Stop AR button clicked!');
+        await handleStopAR();
+      };
+
+      const handleTouchStart = (e: TouchEvent) => {
+        console.log('❌ Stop AR button touchstart!');
+        handleClick(e);
+      };
+
+      const handlePointerDown = (e: PointerEvent) => {
+        console.log('❌ Stop AR button pointerdown!');
+        handleClick(e);
+      };
+
+      // より高い優先度でイベントリスナーを登録
+      button.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+      button.addEventListener('click', handleClick, { passive: false, capture: true });
+      button.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
+
+      return () => {
+        // クリーンアップ
+        button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
+        button.removeEventListener('click', handleClick, { capture: true } as any);  
+        button.removeEventListener('pointerdown', handlePointerDown, { capture: true } as any);
+      };
+    }, []);
+
+    return (
+      <button
+        ref={buttonRef}
+        type="button"
+        className="fixed top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md border-2 border-white/50 transition-all duration-200 active:scale-90 hover:scale-110 hover:border-white/70 cursor-pointer"
+        style={{
+          zIndex: 2147483647,
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.8), rgba(220, 38, 38, 0.6))',
+          boxShadow: '0 12px 40px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+          position: 'fixed',
+          pointerEvents: 'auto',
+          display: 'flex',
+          visibility: 'visible'
+        }}
+        aria-label="AR停止"
+        onClick={async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('❌ React onClick triggered!');
+          await handleStopAR();
+        }}
+      >
+        <X className="w-6 h-6 text-white font-bold" />
+      </button>
+    );
+  };
+
   // 戻るボタンコンポーネント
   const BackButton = () => {
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -926,6 +1004,12 @@ const MarkerARFrame = () => {
       {/* 戻るボタンをポータルでbody直下に描画 */}
       {isMounted && typeof document !== 'undefined' && createPortal(
         <BackButton />,
+        document.body
+      )}
+
+      {/* AR停止ボタン（❌）- AR実行中のみ表示 */}
+      {isStarted && isMounted && typeof document !== 'undefined' && createPortal(
+        <StopARButton />,
         document.body
       )}
 
