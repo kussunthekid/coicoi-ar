@@ -152,10 +152,12 @@ const MarkerARFrame = () => {
           left: 0 !important;
           width: 100% !important;
           height: 100% !important;
+          pointer-events: none !important;
         }
         .mindar-ui-scanning {
           width: 100% !important;
           height: 100% !important;
+          pointer-events: none !important;
         }
         a-scene {
           position: fixed !important;
@@ -167,7 +169,7 @@ const MarkerARFrame = () => {
           margin: 0 !important;
           padding: 0 !important;
           z-index: 1 !important;
-          pointer-events: auto !important;
+          pointer-events: none !important;
         }
         a-scene canvas {
           position: fixed !important;
@@ -177,7 +179,10 @@ const MarkerARFrame = () => {
           height: 100% !important;
           display: block !important;
           z-index: 1 !important;
-          pointer-events: auto !important;
+          pointer-events: none !important;
+        }
+        a-scene * {
+          pointer-events: none !important;
         }
         video {
           position: fixed !important;
@@ -628,7 +633,7 @@ const MarkerARFrame = () => {
       {/* ボタン専用コンテナ - 最前面に配置 */}
       <div 
         className="fixed inset-0 pointer-events-none"
-        style={{ zIndex: 2147483647 }}
+        style={{ zIndex: 2147483647, isolation: 'isolate' }}
       >
         {/* 戻るボタン - 円形グラスモーフィズムデザイン - 常に表示 */}
         <button
@@ -717,7 +722,9 @@ const MarkerARFrame = () => {
             background: 'linear-gradient(135deg, rgba(75, 85, 99, 0.8), rgba(55, 65, 81, 0.6))',
             boxShadow: '0 12px 40px rgba(75, 85, 99, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
             WebkitUserSelect: 'none',
-            MozUserSelect: 'none'
+            MozUserSelect: 'none',
+            zIndex: 2147483647,
+            position: 'relative'
           }}
           aria-label="戻る"
         >
