@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST='{"app/marker/page.tsx -> @/components/MarkerARFrame":{"id":1594,"files":["static/chunks/594.16486574a99dff1b.js"]}}';
