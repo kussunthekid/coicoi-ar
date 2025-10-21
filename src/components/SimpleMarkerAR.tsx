@@ -138,7 +138,7 @@ const SimpleMarkerAR = () => {
         if (containerRef.current) {
           containerRef.current.innerHTML = `
             <a-scene
-              mindar-image="imageTargetSrc: /targets.mind; maxTrack: 1; uiScanning: none; uiLoading: no"
+              mindar-image="imageTargetSrc: /targets.mind; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5"
               color-space="sRGB"
               renderer="colorManagement: true, physicallyCorrectLights: true"
               vr-mode-ui="enabled: false"
