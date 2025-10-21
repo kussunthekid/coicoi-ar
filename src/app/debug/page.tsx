@@ -20,7 +20,7 @@ export default function DebugPage() {
     addLog('DOM Ready');
 
     // グローバルエラーハンドラー
-    window.onerror = (msg, url, line, col, error) => {
+    window.onerror = (msg, _url, line, col, _error) => {
       addLog(`❌ Error: ${msg} at ${line}:${col}`);
       return false;
     };
@@ -49,7 +49,7 @@ export default function DebugPage() {
 
       containerRef.current.innerHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; showStats: true; filterMinCF: 0.0001; filterBeta: 0.001"
+          mindar-image="imageTargetSrc: /targets.mind; autoStart: false; showStats: true; filterMinCF: 0.0001; filterBeta: 0.001"
           vr-mode-ui="enabled: false"
           device-orientation-permission-ui="enabled: false">
 
@@ -120,6 +120,19 @@ export default function DebugPage() {
 
         sceneEl.addEventListener('loaded', () => {
           addLog('✓ Scene loaded');
+
+          // 手動でMindARを開始
+          const mindARSystem = (sceneEl as any).systems?.['mindar-image-system'];
+          if (mindARSystem) {
+            addLog('Starting MindAR manually...');
+            mindARSystem.start().then(() => {
+              addLog('✓ MindAR started');
+            }).catch((err: Error) => {
+              addLog(`❌ MindAR start failed: ${err.message}`);
+            });
+          } else {
+            addLog('❌ MindAR system not found');
+          }
         });
 
         sceneEl.addEventListener('arReady', () => {
