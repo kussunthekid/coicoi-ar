@@ -190,8 +190,9 @@ const SimpleMarkerAR = () => {
               a-scene {
                 pointer-events: none !important;
               }
-              /* 2番目以降のシーンのvideo要素のみ非表示（canvasは表示してモデルを描画） */
-              a-scene:nth-of-type(n+2) video {
+              /* 2番目以降のシーンのvideo/canvas要素を非表示 */
+              a-scene:nth-of-type(n+2) video,
+              a-scene:nth-of-type(n+2) canvas {
                 display: none !important;
               }
             </style>
@@ -245,6 +246,39 @@ const SimpleMarkerAR = () => {
 
                 if (loadedCount >= scenes.length) {
                   console.log('All scenes loaded');
+
+                  // ターゲット検出時に他のシーンのモデルと競合しないようにする
+                  scenes.forEach((s, i) => {
+                    const target = s.querySelector('[mindar-image-target]');
+                    if (target) {
+                      target.addEventListener('targetFound', () => {
+                        console.log(`Target found in scene ${i}`);
+                        // 他のシーンのcanvasを一時的に非表示
+                        scenes.forEach((otherScene, j) => {
+                          if (i !== j && j > 0) {
+                            const canvas = otherScene.querySelector('canvas');
+                            if (canvas) {
+                              (canvas as HTMLElement).style.display = 'none';
+                            }
+                          }
+                        });
+                      });
+
+                      target.addEventListener('targetLost', () => {
+                        console.log(`Target lost in scene ${i}`);
+                        // 他のシーンのcanvasを再表示
+                        scenes.forEach((otherScene, j) => {
+                          if (i !== j && j > 0) {
+                            const canvas = otherScene.querySelector('canvas');
+                            if (canvas) {
+                              (canvas as HTMLElement).style.display = '';
+                            }
+                          }
+                        });
+                      });
+                    }
+                  });
+
                   resolve(true);
                 }
               });
