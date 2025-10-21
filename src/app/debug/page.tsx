@@ -19,6 +19,16 @@ export default function DebugPage() {
   useEffect(() => {
     addLog('DOM Ready');
 
+    // グローバルエラーハンドラー
+    window.onerror = (msg, url, line, col, error) => {
+      addLog(`❌ Error: ${msg} at ${line}:${col}`);
+      return false;
+    };
+
+    window.addEventListener('unhandledrejection', (e) => {
+      addLog(`❌ Unhandled Promise: ${e.reason}`);
+    });
+
     const initAR = () => {
       if (typeof (window as any).AFRAME === 'undefined') {
         setTimeout(initAR, 100);
@@ -26,6 +36,14 @@ export default function DebugPage() {
       }
 
       addLog('A-Frame loaded');
+
+      // Check if MindAR is loaded
+      if (typeof (window as any).MINDAR === 'undefined') {
+        addLog('❌ MindAR not loaded');
+        return;
+      } else {
+        addLog('✓ MindAR library loaded');
+      }
 
       if (!containerRef.current) return;
 
@@ -72,6 +90,20 @@ export default function DebugPage() {
         }
 
         addLog('Scene element found');
+
+        // targets.mind ファイルをチェック
+        fetch('/targets.mind', { method: 'HEAD' })
+          .then(response => {
+            if (response.ok) {
+              const size = response.headers.get('content-length');
+              addLog(`✓ targets.mind: ${size ? (parseInt(size)/1024/1024).toFixed(1) + 'MB' : 'OK'}`);
+            } else {
+              addLog(`❌ targets.mind: ${response.status}`);
+            }
+          })
+          .catch(err => {
+            addLog(`❌ targets.mind fetch error: ${err.message}`);
+          });
 
         // カメラ権限チェック
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
