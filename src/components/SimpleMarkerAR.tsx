@@ -132,10 +132,43 @@ const SimpleMarkerAR = () => {
 
         if (!isMounted) return;
 
-        // A-Frameシーンを作成（軽量な個別ターゲットファイルを使用し、1シーンのみ表示）
+        // A-Frameシーンを作成（5つの個別ターゲットファイル、canvas/videoは1つだけ使用）
         if (containerRef.current) {
-          // 5つのマーカー画像を結合したtargetsファイルを作る代わりに
-          // 各ターゲットを個別のシーンで扱い、最初のシーンのみ表示
+          const targetConfigs = [
+            { file: 'targets_blue.mind', model: 'wkwk_blue', name: 'blue' },
+            { file: 'targets_gold.mind', model: 'wkwk_gold', name: 'gold' },
+            { file: 'targets_green.mind', model: 'wkwk_green', name: 'green' },
+            { file: 'targets_pencil.mind', model: 'wkwk_pencil', name: 'pencil' },
+            { file: 'targets_pink.mind', model: 'wkwk_pink', name: 'pink' }
+          ];
+
+          // 最初のシーンだけcanvas/videoを表示、残りは非表示
+          const scenesHTML = targetConfigs.map((config, index) => `
+            <a-scene
+              id="scene-${config.name}"
+              class="${index > 0 ? 'hidden-canvas' : ''}"
+              mindar-image="imageTargetSrc: /${config.file}; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
+              color-space="sRGB"
+              renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, precision: medium"
+              vr-mode-ui="enabled: false"
+              device-orientation-permission-ui="enabled: false"
+              style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; margin: 0; padding: 0;"
+            >
+              <a-assets>
+                <a-asset-item id="${config.model}-model-${index}" src="/${config.model}.glb"></a-asset-item>
+              </a-assets>
+
+              <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
+
+              <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
+              <a-light type="directional" color="#ffffff" intensity="2.0" position="1 2 1"></a-light>
+
+              <a-entity mindar-image-target="targetIndex: 0">
+                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#${config.model}-model-${index}" animation-mixer></a-gltf-model>
+              </a-entity>
+            </a-scene>
+          `).join('');
+
           containerRef.current.innerHTML = `
             <style>
               .a-canvas {
@@ -158,71 +191,24 @@ const SimpleMarkerAR = () => {
               a-scene {
                 pointer-events: none !important;
               }
-              .hidden-scene {
+              /* 2番目以降のシーンのcanvas/videoを非表示 */
+              .hidden-canvas canvas,
+              .hidden-canvas video {
                 display: none !important;
               }
             </style>
-            <a-scene
-              id="ar-scene"
-              mindar-image="imageTargetSrc: /targets_blue.mind; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
-              color-space="sRGB"
-              renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, precision: medium"
-              vr-mode-ui="enabled: false"
-              device-orientation-permission-ui="enabled: false"
-              webxr="optionalFeatures: dom-overlay, dom-overlay-for-handheld-ar"
-              style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; margin: 0; padding: 0;"
-            >
-              <a-assets>
-                <a-asset-item id="wkwk-blue-model" src="/wkwk_blue.glb"></a-asset-item>
-                <a-asset-item id="wkwk-gold-model" src="/wkwk_gold.glb"></a-asset-item>
-                <a-asset-item id="wkwk-green-model" src="/wkwk_green.glb"></a-asset-item>
-                <a-asset-item id="wkwk-pencil-model" src="/wkwk_pencil.glb"></a-asset-item>
-                <a-asset-item id="wkwk-pink-model" src="/wkwk_pink.glb"></a-asset-item>
-              </a-assets>
-
-              <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
-
-              <!-- ライティング - 最適化 -->
-              <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
-              <a-light type="directional" color="#ffffff" intensity="2.0" position="1 2 1"></a-light>
-
-              <a-entity id="target-blue" mindar-image-target="targetIndex: 0">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-blue-model" animation-mixer></a-gltf-model>
-              </a-entity>
-            </a-scene>
+            ${scenesHTML}
           `;
 
-          // A-Frameシーンが完全に読み込まれるまで待機
+          // 全てのA-Frameシーンが完全に読み込まれるまで待機
           await new Promise((resolve) => {
-            const scene = document.querySelector('a-scene');
+            const scenes = document.querySelectorAll('a-scene');
+            let loadedCount = 0;
 
-            if (scene) {
-              // render-targetイベントでレンダラーを設定
-              scene.addEventListener('render-target-loaded', () => {
-                const sceneEl = scene as any;
-                if (sceneEl.renderer) {
-                  console.log('Setting up renderer for screenshot capability');
-                  sceneEl.renderer.preserveDrawingBuffer = true;
-                }
-              });
-
-              // MindAR arReady event
-              scene.addEventListener('arReady', () => {
-                console.log('MindAR is ready');
-
-                // スマホ用：カメラ設定を確認・調整
-                const video = scene.querySelector('video');
-                if (video) {
-                  console.log('Camera resolution:', video.videoWidth, 'x', video.videoHeight);
-                }
-              });
-
-              scene.addEventListener('arError', (event: any) => {
-                console.error('MindAR Error:', event.detail);
-              });
-
+            scenes.forEach((scene, idx) => {
               scene.addEventListener('loaded', () => {
-                console.log('A-Frame scene loaded');
+                loadedCount++;
+                console.log(`Scene ${idx} loaded (${loadedCount}/${scenes.length})`);
 
                 // モデルのマテリアルを明るく設定
                 setTimeout(() => {
@@ -232,7 +218,6 @@ const SimpleMarkerAR = () => {
                     if (model) {
                       model.traverse((child: any) => {
                         if (child.isMesh && child.material) {
-                          // マテリアルを明るく調整
                           if (Array.isArray(child.material)) {
                             child.material.forEach((mat: any) => {
                               mat.emissive = mat.emissive || new (window as any).THREE.Color(0x222222);
@@ -258,21 +243,19 @@ const SimpleMarkerAR = () => {
                       });
                     }
                   });
-                  console.log('Model brightness enhanced');
                 }, 500);
 
-                resolve(true);
+                if (loadedCount >= scenes.length) {
+                  console.log('All scenes loaded');
+                  resolve(true);
+                }
               });
+            });
 
-              // タイムアウトフォールバック
-              setTimeout(() => {
-                console.log('A-Frame scene timeout fallback');
-                resolve(true);
-              }, 3000);
-            } else {
-              console.warn('A-Frame scene not found');
+            setTimeout(() => {
+              console.log(`Timeout: ${loadedCount}/${scenes.length} scenes loaded`);
               resolve(true);
-            }
+            }, 5000);
           });
 
           setIsLoading(false);
@@ -348,9 +331,9 @@ const SimpleMarkerAR = () => {
         delete (window as any)._arCleanupListeners;
       }
 
-      // A-Frameシーンを削除
-      const scene = document.querySelector('a-scene');
-      if (scene) {
+      // 全てのA-Frameシーンを削除
+      const scenes = document.querySelectorAll('a-scene');
+      scenes.forEach((scene) => {
         // MindARシステムを停止
         const mindarSystem = (scene as any).systems?.['mindar-image-system'];
         if (mindarSystem && typeof mindarSystem.stop === 'function') {
@@ -369,7 +352,7 @@ const SimpleMarkerAR = () => {
         }
 
         scene.remove();
-      }
+      });
 
       // bodyのスタイルをリセット
       document.body.style.margin = '';
@@ -387,31 +370,40 @@ const SimpleMarkerAR = () => {
 
   const handleGetModel = () => {
     // 現在表示されているモデルを検出してコレクションに追加（1つだけ）
-    const scene = document.querySelector('a-scene');
-    if (!scene) return;
+    const scenes = document.querySelectorAll('a-scene');
+    const modelNames = ['wkwk_blue', 'wkwk_gold', 'wkwk_green', 'wkwk_pencil', 'wkwk_pink'];
+    let foundModel: string | null = null;
 
-    const target = scene.querySelector('[mindar-image-target]');
-    if (!target) return;
+    scenes.forEach((scene, idx) => {
+      if (foundModel) return;
 
-    const targetEl = target as any;
-    if (targetEl.object3D && targetEl.object3D.visible) {
-      // blueマーカーのみ対応（暫定）
-      const modelName = 'wkwk_blue';
-      if (!collectedModels.includes(modelName)) {
-        setCollectedModels(prev => {
-          const newCollection = [...prev, modelName];
-          console.log('Collected model:', modelName);
+      const target = scene.querySelector('[mindar-image-target]');
+      if (!target) return;
 
-          // 5つ全部集まったかチェック
-          if (newCollection.length === 5) {
-            setTimeout(() => {
-              setShowComplete(true);
-            }, 500);
-          }
-
-          return newCollection;
-        });
+      const targetEl = target as any;
+      if (targetEl.object3D && targetEl.object3D.visible) {
+        const modelName = modelNames[idx];
+        if (!collectedModels.includes(modelName)) {
+          foundModel = modelName;
+        }
       }
+    });
+
+    if (foundModel) {
+      const modelToAdd = foundModel;
+      setCollectedModels(prev => {
+        const newCollection = [...prev, modelToAdd];
+        console.log('Collected model:', modelToAdd);
+
+        // 5つ全部集まったかチェック
+        if (newCollection.length === 5) {
+          setTimeout(() => {
+            setShowComplete(true);
+          }, 500);
+        }
+
+        return newCollection;
+      });
     } else {
       console.log('No new model found or already collected');
     }
