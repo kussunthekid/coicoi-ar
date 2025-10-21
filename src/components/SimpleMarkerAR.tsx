@@ -190,9 +190,8 @@ const SimpleMarkerAR = () => {
               a-scene {
                 pointer-events: none !important;
               }
-              /* 2番目以降のシーンのvideo/canvas要素を非表示 */
-              a-scene:nth-of-type(n+2) video,
-              a-scene:nth-of-type(n+2) canvas {
+              /* 2番目以降のシーンのvideo要素のみ非表示 */
+              a-scene:nth-of-type(n+2) video {
                 display: none !important;
               }
             </style>
