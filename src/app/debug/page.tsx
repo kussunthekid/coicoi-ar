@@ -164,6 +164,24 @@ export default function DebugPage() {
 
         addLog(`Monitoring ${targets.length} targets`);
 
+        // シーンが5秒経ってもloadedイベントが発火しない場合
+        setTimeout(() => {
+          const hasLoaded = (sceneEl as any).hasLoaded;
+          if (!hasLoaded) {
+            addLog('⚠️ Scene loaded event not fired after 5s');
+            addLog('Forcing MindAR start...');
+
+            const mindARSystem = (sceneEl as any).systems?.['mindar-image-system'];
+            if (mindARSystem) {
+              mindARSystem.start().then(() => {
+                addLog('✓ MindAR force started');
+              }).catch((err: Error) => {
+                addLog(`❌ Force start failed: ${err.message}`);
+              });
+            }
+          }
+        }, 5000);
+
         // ビデオ要素の定期チェック
         let count = 0;
         const checkVideo = setInterval(() => {
@@ -176,6 +194,18 @@ export default function DebugPage() {
             addLog(`Video ${count}: Not found yet`);
             if (count >= 10) {
               addLog('❌ Video never appeared');
+
+              // A-Frameのシーン状態を確認
+              addLog(`Scene hasLoaded: ${(sceneEl as any).hasLoaded}`);
+              addLog(`Scene renderStarted: ${(sceneEl as any).renderStarted}`);
+
+              const mindARSystem = (sceneEl as any).systems?.['mindar-image-system'];
+              if (mindARSystem) {
+                addLog(`MindAR initialized: ${!!mindARSystem.initialized}`);
+              } else {
+                addLog('❌ MindAR system not in scene.systems');
+              }
+
               clearInterval(checkVideo);
             }
           }
