@@ -443,35 +443,18 @@ const SimpleMarkerAR = () => {
   const capturePhoto = () => {
     console.log('Capture photo clicked');
 
-    // シーン、ビデオ、キャンバスを取得
-    const scene = document.querySelector('a-scene');
-    console.log('Scene:', scene);
+    // 全シーンを取得
+    const scenes = document.querySelectorAll('a-scene');
+    console.log('Scenes:', scenes.length);
 
-    // ビデオ要素を複数の方法で検索
-    let video = scene?.querySelector('video');
-    if (!video) {
-      video = document.querySelector('video');
-    }
+    // ビデオ要素を検索（最初のシーンから）
+    let video = document.querySelector('video');
     console.log('Video:', video);
     console.log('Video dimensions:', video?.videoWidth, 'x', video?.videoHeight);
-
-    // キャンバス要素を複数の方法で検索
-    let aframeCanvas = scene?.querySelector('canvas');
-    if (!aframeCanvas) {
-      aframeCanvas = document.querySelector('canvas');
-    }
-    console.log('Canvas:', aframeCanvas);
-    console.log('Canvas dimensions:', (aframeCanvas as HTMLCanvasElement)?.width, 'x', (aframeCanvas as HTMLCanvasElement)?.height);
 
     if (!video) {
       console.error('Video not found');
       alert('カメラが見つかりません。しばらく待ってから再試行してください。');
-      return;
-    }
-
-    if (!aframeCanvas) {
-      console.error('Canvas not found');
-      alert('キャンバスが見つかりません。しばらく待ってから再試行してください。');
       return;
     }
 
@@ -485,7 +468,7 @@ const SimpleMarkerAR = () => {
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 150);
 
-    // 現在の画面サイズ（実際に表示されているサイズ）
+    // 現在の画面サイズ
     const displayWidth = window.visualViewport?.width || window.innerWidth;
     const displayHeight = window.visualViewport?.height || window.innerHeight;
 
@@ -496,20 +479,17 @@ const SimpleMarkerAR = () => {
     let videoDisplayWidth, videoDisplayHeight;
     let videoOffsetX = 0, videoOffsetY = 0;
 
-    // object-coverの計算（短い辺に合わせてクロップ）
     if (videoAspectRatio > displayAspectRatio) {
-      // ビデオが横長：高さに合わせて幅をクロップ
       videoDisplayHeight = displayHeight;
       videoDisplayWidth = displayHeight * videoAspectRatio;
       videoOffsetX = (displayWidth - videoDisplayWidth) / 2;
     } else {
-      // ビデオが縦長：幅に合わせて高さをクロップ
       videoDisplayWidth = displayWidth;
       videoDisplayHeight = displayWidth / videoAspectRatio;
       videoOffsetY = (displayHeight - videoDisplayHeight) / 2;
     }
 
-    // 最終的なキャンバスサイズは画面サイズに合わせる
+    // キャンバスを作成
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -517,50 +497,49 @@ const SimpleMarkerAR = () => {
     canvas.width = displayWidth;
     canvas.height = displayHeight;
 
-    // 1. ビデオフレーム全体を描画
+    // 1. ビデオフレームを描画
     ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight,
                  videoOffsetX, videoOffsetY, videoDisplayWidth, videoDisplayHeight);
 
-    // 2. Three.jsシーンを別のキャンバスにレンダリング
-    const sceneEl = scene as any;
-    if (sceneEl.renderer && sceneEl.camera) {
-      try {
-        // 一時的なキャンバスを作成してThree.jsシーンをレンダリング
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = displayWidth * window.devicePixelRatio;
-        tempCanvas.height = displayHeight * window.devicePixelRatio;
+    // 2. 全シーンの3Dモデルを合成
+    const THREE = (window as any).THREE;
+    if (THREE) {
+      scenes.forEach((sceneEl: any, idx) => {
+        if (sceneEl.renderer && sceneEl.camera) {
+          try {
+            // 一時キャンバスを作成
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = displayWidth * window.devicePixelRatio;
+            tempCanvas.height = displayHeight * window.devicePixelRatio;
 
-        const THREE = (window as any).THREE;
-        const tempRenderer = new THREE.WebGLRenderer({
-          canvas: tempCanvas,
-          alpha: true,
-          preserveDrawingBuffer: true,
-          antialias: true
-        });
-        tempRenderer.setSize(displayWidth, displayHeight);
-        tempRenderer.setClearColor(0x000000, 0);
+            const tempRenderer = new THREE.WebGLRenderer({
+              canvas: tempCanvas,
+              alpha: true,
+              preserveDrawingBuffer: true,
+              antialias: true
+            });
+            tempRenderer.setSize(displayWidth, displayHeight);
+            tempRenderer.setClearColor(0x000000, 0);
 
-        // シーンをレンダリング
-        tempRenderer.render(sceneEl.object3D, sceneEl.camera);
+            // シーンをレンダリング
+            tempRenderer.render(sceneEl.object3D, sceneEl.camera);
 
-        // 3Dシーンを合成
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(tempCanvas, 0, 0, displayWidth, displayHeight);
+            // 合成
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(tempCanvas, 0, 0, displayWidth, displayHeight);
 
-        // 一時レンダラーを破棄
-        tempRenderer.dispose();
-
-        console.log('3D scene rendered to temporary canvas');
-      } catch (err) {
-        console.error('Failed to render 3D scene:', err);
-      }
+            tempRenderer.dispose();
+            console.log(`Scene ${idx} rendered`);
+          } catch (err) {
+            console.error(`Failed to render scene ${idx}:`, err);
+          }
+        }
+      });
     }
 
     // デバッグ情報
     console.log('Display size:', displayWidth, 'x', displayHeight);
     console.log('Video resolution:', video.videoWidth, 'x', video.videoHeight);
-    console.log('Video display size:', videoDisplayWidth, 'x', videoDisplayHeight);
-    console.log('Video offset:', videoOffsetX, 'x', videoOffsetY);
 
     // 画像データを取得してダウンロード
     const imageData = canvas.toDataURL('image/png');
