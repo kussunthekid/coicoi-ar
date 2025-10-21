@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Camera } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { saveCollectedModels, loadCollectedModels } from '@/utils/indexedDB';
 
 const ModelViewer3D = dynamic(() => import('./ModelViewer3D'), {
   ssr: false
@@ -24,6 +25,35 @@ const SimpleMarkerAR = () => {
   const scaleRef = useRef(0.5);
 
   const modelNames = ['wkwk_blue', 'wkwk_gold', 'wkwk_green', 'wkwk_pencil', 'wkwk_pink'];
+
+  // IndexedDBからコレクションデータを読み込み
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const savedModels = await loadCollectedModels();
+        if (savedModels.length > 0) {
+          setCollectedModels(savedModels);
+          console.log('Loaded collected models from IndexedDB:', savedModels);
+        }
+      } catch (error) {
+        console.error('Failed to load from IndexedDB:', error);
+      }
+    };
+    loadData();
+  }, []);
+
+  // collectedModelsが変更されたらIndexedDBに保存
+  useEffect(() => {
+    if (collectedModels.length > 0) {
+      saveCollectedModels(collectedModels)
+        .then(() => {
+          console.log('Saved to IndexedDB:', collectedModels);
+        })
+        .catch((error) => {
+          console.error('Failed to save to IndexedDB:', error);
+        });
+    }
+  }, [collectedModels]);
 
   useEffect(() => {
     let isMounted = true;
