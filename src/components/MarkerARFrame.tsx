@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Camera, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ declare global {
     MINDAR: any;
     AFRAME: any;
     Stats?: any;
+    __MARKER_AR_INITIALIZED__?: boolean;
   }
 }
 
@@ -27,11 +28,6 @@ const MarkerARFrame = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [coicoiScale, setCoicoiScale] = useState(0.5); // ターゲット画像の半分のサイズ
-  const [wkwkScale, setWkwkScale] = useState(0.5); // ターゲット画像の半分のサイズ
-  const touchStartDistance = useRef<number | null>(null);
-  const currentCoicoiScale = useRef(0.5); // ターゲット画像の半分のサイズ
-  const currentWkwkScale = useRef(0.5); // ターゲット画像の半分のサイズ
   const [isMounted, setIsMounted] = useState(false);
   const [detectedMarkers, setDetectedMarkers] = useState<{[key: number]: boolean}>({});
   const [showFlash, setShowFlash] = useState(false);
@@ -54,42 +50,72 @@ const MarkerARFrame = () => {
   }, [collectedModels]);
   
   
-  // タッチハンドラの参照を保持
-  const touchHandlersRef = useRef<{
-    handleTouchStart?: (e: TouchEvent) => void;
-    handleTouchMove?: (e: TouchEvent) => void;
-    handleTouchEnd?: (e: TouchEvent) => void;
-  }>({});
-
   const markerConfigs: Record<string, MarkerConfig> = {
-    coicoi: {
+    wkwk_gold: {
       mindFile: '/targets.mind',
-      modelFile: '/coicoi.glb',
-      modelName: 'coicoi画像'
+      modelFile: '/wkwk_gold.glb',
+      modelName: 'wkwk_gold画像'
     },
-    wkwk: {
+    wkwk_pink: {
       mindFile: '/targets.mind',
-      modelFile: '/wkwk.glb',
-      modelName: 'wkwk画像'
+      modelFile: '/wkwk_pink.glb',
+      modelName: 'wkwk_pink画像'
+    },
+    wkwk_green: {
+      mindFile: '/targets.mind',
+      modelFile: '/wkwk_green.glb',
+      modelName: 'wkwk_green画像'
+    },
+    wkwk_pencil: {
+      mindFile: '/targets.mind',
+      modelFile: '/wkwk_pencil.glb',
+      modelName: 'wkwk_pencil画像'
+    },
+    wkwk_blue: {
+      mindFile: '/targets.mind',
+      modelFile: '/wkwk_blue.glb',
+      modelName: 'wkwk_blue画像'
     }
   };
 
   useEffect(() => {
     setIsMounted(true);
-    
+
     const loadMindAR = async () => {
+      // React Strict Modeでの二重実行を防ぐ
+      if (window.__MARKER_AR_INITIALIZED__) {
+        console.log('Already initializing, skipping...');
+        return;
+      }
+      window.__MARKER_AR_INITIALIZED__ = true;
+
       try {
+        // 既存のA-Frameシーンを完全に削除
+        const existingScene = document.querySelector('a-scene');
+        if (existingScene) {
+          console.log('🗑️ Removing existing A-Frame scene...');
+          existingScene.remove();
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
         if (!window.MINDAR || !window.AFRAME) {
           console.log('Loading MindAR and A-Frame libraries...');
-          
+
           const scripts = [
-            'https://aframe.io/releases/1.3.0/aframe.min.js',
-            'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js'
+            { src: 'https://aframe.io/releases/1.3.0/aframe.min.js', id: 'aframe-script' },
+            { src: 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js', id: 'mindar-script' }
           ];
 
-          for (const src of scripts) {
+          for (const { src, id } of scripts) {
+            // 既にスクリプトが読み込まれているかチェック
+            if (document.getElementById(id)) {
+              console.log(`Script already loaded: ${src}`);
+              continue;
+            }
+
             await new Promise<void>((resolve, reject) => {
               const script = document.createElement('script');
+              script.id = id;
               script.src = src;
               script.async = false;
               script.onload = () => {
@@ -106,31 +132,34 @@ const MarkerARFrame = () => {
 
           await new Promise(resolve => setTimeout(resolve, 500));
           console.log('All libraries loaded');
-          
+
           // MindARとA-Frameのグローバルオブジェクトを確認
           console.log('MINDAR available:', !!window.MINDAR);
           console.log('AFRAME available:', !!window.AFRAME);
-          
-          // Statsオブジェクトが未定義の場合の対策
-          if (window.AFRAME && !window.AFRAME.components.stats) {
-            console.log('Adding dummy stats component');
-            window.AFRAME.registerComponent('stats', {
-              init: function() {
-                // 何もしない空のstatsコンポーネント
-              }
-            });
-          }
-          
-          // カスタムノイズエフェクトシェーダーを登録
-          if (window.AFRAME && !window.AFRAME.shaders['noise-effect']) {
-            window.AFRAME.registerShader('noise-effect', {
-              schema: {
-                timeMSec: {type: 'time', is: 'uniform'},
-                intensity: {type: 'number', is: 'uniform', default: 0.5},
-                speed: {type: 'number', is: 'uniform', default: 1.0},
-                pattern: {type: 'number', is: 'uniform', default: 0}
-              },
-              vertexShader: `
+        } else {
+          console.log('✅ MindAR and A-Frame already loaded');
+        }
+
+        // Statsオブジェクトが未定義の場合の対策
+        if (window.AFRAME && !window.AFRAME.components.stats) {
+          console.log('Adding dummy stats component');
+          window.AFRAME.registerComponent('stats', {
+            init: function() {
+              // 何もしない空のstatsコンポーネント
+            }
+          });
+        }
+
+        // カスタムノイズエフェクトシェーダーを登録
+        if (window.AFRAME && !window.AFRAME.shaders['noise-effect']) {
+          window.AFRAME.registerShader('noise-effect', {
+            schema: {
+              timeMSec: {type: 'time', is: 'uniform'},
+              intensity: {type: 'number', is: 'uniform', default: 0.5},
+              speed: {type: 'number', is: 'uniform', default: 1.0},
+              pattern: {type: 'number', is: 'uniform', default: 0}
+            },
+            vertexShader: `
                 varying vec2 vUv;
                 varying vec3 vPosition;
                 void main() {
@@ -187,23 +216,39 @@ const MarkerARFrame = () => {
                   gl_FragColor = vec4(color, 0.8);
                 }
               `
-            });
-            console.log('Custom noise shader registered');
+          });
+          console.log('Custom noise shader registered');
+        }
+
+        // A-FrameのStats表示を完全に無効化
+        if (window.AFRAME && window.AFRAME.utils && window.AFRAME.utils.device) {
+          // デバッグ用のstats表示を強制的に無効化
+          const originalDevice = window.AFRAME.utils.device;
+          if (originalDevice.checkHeadsetConnected) {
+            console.log('Disabling A-Frame stats display');
           }
-          
-          // A-FrameのStats表示を完全に無効化
-          if (window.AFRAME && window.AFRAME.utils && window.AFRAME.utils.device) {
-            // デバッグ用のstats表示を強制的に無効化
-            const originalDevice = window.AFRAME.utils.device;
-            if (originalDevice.checkHeadsetConnected) {
-              console.log('Disabling A-Frame stats display');
-            }
-          }
-          
-          // グローバルなStats関数を無効化
-          if (typeof window.Stats !== 'undefined') {
-            console.log('Disabling global Stats function');
-            window.Stats = function() {
+        }
+
+        // グローバルなStats関数を無効化
+        if (typeof window.Stats !== 'undefined') {
+          console.log('Disabling global Stats function');
+          window.Stats = function() {
+            return {
+              setMode: function() {},
+              begin: function() {},
+              end: function() {},
+              update: function() {},
+              domElement: document.createElement('div')
+            };
+          } as any;
+        }
+
+        // Three.jsのStats表示を無効化
+        if (typeof (window as any).THREE !== 'undefined') {
+          console.log('Disabling THREE.js Stats');
+          const THREE = (window as any).THREE;
+          if (THREE.Stats) {
+            THREE.Stats = function() {
               return {
                 setMode: function() {},
                 begin: function() {},
@@ -211,24 +256,7 @@ const MarkerARFrame = () => {
                 update: function() {},
                 domElement: document.createElement('div')
               };
-            } as any;
-          }
-          
-          // Three.jsのStats表示を無効化
-          if (typeof (window as any).THREE !== 'undefined') {
-            console.log('Disabling THREE.js Stats');
-            const THREE = (window as any).THREE;
-            if (THREE.Stats) {
-              THREE.Stats = function() {
-                return {
-                  setMode: function() {},
-                  begin: function() {},
-                  end: function() {},
-                  update: function() {},
-                  domElement: document.createElement('div')
-                };
-              };
-            }
+            };
           }
         }
         
@@ -245,21 +273,21 @@ const MarkerARFrame = () => {
       await stopAR();
     };
 
-    const handleVisibilityChange = async () => {
+    const handleVisibilityChange = () => {
       if (document.hidden) {
         console.log('🔄 Page became hidden, cleaning up AR...');
-        await stopAR();
+        stopAR().catch(err => console.error('Error in visibility change handler:', err));
       }
     };
 
-    const handleBeforeUnload = async () => {
+    const handleBeforeUnload = () => {
       console.log('🔄 Page unloading, cleaning up AR...');
-      await stopAR();
+      stopAR().catch(err => console.error('Error in beforeunload handler:', err));
     };
 
-    const handlePopstate = async () => {
+    const handlePopstate = () => {
       console.log('🔄 Browser back detected, cleaning up AR...');
-      await stopAR();
+      stopAR().catch(err => console.error('Error in popstate handler:', err));
     };
 
     // イベントリスナーを登録
@@ -274,33 +302,50 @@ const MarkerARFrame = () => {
     return () => {
       console.log('MarkerARFrame component unmounting, cleaning up...');
       setIsMounted(false);
-      
+
       // イベントリスナーを削除
       window.removeEventListener('pagehide', handlePageHide);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopstate);
-      
+
+      // グローバルフラグをリセット
+      window.__MARKER_AR_INITIALIZED__ = false;
+
       // 非同期で停止処理を実行
       (async () => {
         await stopAR();
+
+        // 既存のシーンを削除
+        const existingScene = document.querySelector('a-scene');
+        if (existingScene) {
+          console.log('🗑️ Removing A-Frame scene during cleanup...');
+          existingScene.remove();
+        }
       })();
     };
   }, []);
 
   const initializeAR = async () => {
+    console.log('=== initializeAR called ===');
+    console.log('containerRef.current:', containerRef.current);
+
     if (!containerRef.current) {
+      console.error('Container ref is null');
       setError('コンテナが見つかりません');
       return;
     }
 
     try {
       console.log('Starting AR initialization...');
-      
+      console.log('Navigator.mediaDevices available:', !!navigator.mediaDevices);
+      console.log('getUserMedia available:', !!navigator.mediaDevices?.getUserMedia);
+
       // カメラ権限を事前に要求
       console.log('Requesting camera permission...');
       try {
         // モバイル端末に適したカメラアクセスを試す
+        console.log('Calling getUserMedia...');
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: { ideal: 'environment' },
@@ -462,12 +507,24 @@ const MarkerARFrame = () => {
       document.head.appendChild(styleElement);
 
 
-      // Create A-Frame scene HTML - 公式例に基づいた正しい実装
+      // targets.mindファイルの存在確認
+      console.log('🔍 Checking if /targets.mind exists...');
+      try {
+        const response = await fetch('/targets.mind', { method: 'HEAD' });
+        console.log('✅ targets.mind HEAD response:', response.status, response.statusText);
+        if (!response.ok) {
+          console.error('❌ targets.mind file not accessible:', response.status);
+        }
+      } catch (e) {
+        console.error('❌ Error checking targets.mind:', e);
+      }
+
+      // Create A-Frame scene HTML - テスト用に公式サンプルのtargets.mindを使用
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: /targets.mind; autoStart: no; uiScanning: no; uiLoading: no; uiError: no; showStats: false; maxTrack: 2; filterMinCF: 0.001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
+          mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind; autoStart: no; uiScanning: no; uiLoading: no; uiError: no; showStats: false; maxTrack: 5; filterMinCF: 0.001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
           color-space="sRGB"
-          renderer="colorManagement: true, physicallyCorrectLights, antialias: true, preserveDrawingBuffer: true"
+          renderer="colorManagement: true; antialias: true; preserveDrawingBuffer: true; outputColorSpace: srgb; physicallyCorrectLights: true; toneMapping: ACESFilmic; toneMappingExposure: 1.2"
           vr-mode-ui="enabled: false"
           device-orientation-permission-ui="enabled: false"
           stats="false"
@@ -476,68 +533,52 @@ const MarkerARFrame = () => {
           style="display: block; width: 100vw; height: 100vh;"
         >
           <a-assets>
-            <a-asset-item id="coicoi-model" src="/coicoi.glb"></a-asset-item>
-            <a-asset-item id="wkwk-model" src="/wkwk.glb"></a-asset-item>
+            <a-asset-item id="wkwk-gold-model" src="/wkwk_gold.glb"></a-asset-item>
+            <a-asset-item id="wkwk-pink-model" src="/wkwk_pink.glb"></a-asset-item>
+            <a-asset-item id="wkwk-green-model" src="/wkwk_green.glb"></a-asset-item>
+            <a-asset-item id="wkwk-pencil-model" src="/wkwk_pencil.glb"></a-asset-item>
+            <a-asset-item id="wkwk-blue-model" src="/wkwk_blue.glb"></a-asset-item>
           </a-assets>
-          
+
+          <!-- ライティング設定 - 金属質感のために複数の光源を配置 -->
+          <a-light type="ambient" intensity="0.8" color="#ffffff"></a-light>
+          <a-light type="directional" intensity="1.2" position="1 1 1" color="#ffffff"></a-light>
+          <a-light type="directional" intensity="0.8" position="-1 1 -1" color="#ffffff"></a-light>
+          <a-light type="hemisphere" intensity="0.6" color="#ffffff" groundColor="#888888"></a-light>
+
           <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-          
-          <!-- Coicoi用 (index 0) -->
+
+          <!-- WKWK Blue用 (index 0 - アルファベット順) -->
           <a-entity mindar-image-target="targetIndex: 0">
-            <a-entity id="coicoi-anchor" position="0 0 0" rotation="0 0 0">
-              <a-gltf-model
-                id="model-coicoi"
-                rotation="90 0 0"
-                position="0 0.3 0"
-                scale="${coicoiScale} ${coicoiScale} ${coicoiScale}"
-                src="#coicoi-model"
-                animation-mixer="loop: repeat; clampWhenFinished: false"
-                geometry="primitive: box; width: 0; height: 0; depth: 0"
-                material="transparent: true; opacity: 0"
-                shadow="cast: true; receive: false"
-              ></a-gltf-model>
-              <!-- エフェクト用の透明オーバーレイ -->
-              <a-plane
-                id="coicoi-effect"
-                position="0 0.3 0.1"
-                rotation="90 0 0"
-                width="2"
-                height="2"
-                material="shader: noise-effect; transparent: true; opacity: 0.0"
-                visible="false"
-              ></a-plane>
-            </a-entity>
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-blue-model" animation-mixer></a-gltf-model>
           </a-entity>
-          
-          <!-- WKWK用 (index 1) -->
+
+          <!-- WKWK Gold用 (index 1 - アルファベット順) -->
           <a-entity mindar-image-target="targetIndex: 1">
-            <a-entity id="wkwk-anchor" position="0 0 0" rotation="0 0 0">
-              <a-gltf-model
-                id="model-wkwk"
-                rotation="90 0 0"
-                position="0 0.3 0"
-                scale="${wkwkScale} ${wkwkScale} ${wkwkScale}"
-                src="#wkwk-model"
-                animation-mixer="loop: repeat; clampWhenFinished: false"
-                geometry="primitive: box; width: 0; height: 0; depth: 0"
-                material="transparent: true; opacity: 0"
-                shadow="cast: true; receive: false"
-              ></a-gltf-model>
-              <!-- エフェクト用の透明オーバーレイ -->
-              <a-plane
-                id="wkwk-effect"
-                position="0 0.3 0.1"
-                rotation="90 0 0"
-                width="2"
-                height="2"
-                material="shader: noise-effect; transparent: true; opacity: 0.0"
-                visible="false"
-              ></a-plane>
-            </a-entity>
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-gold-model" animation-mixer></a-gltf-model>
           </a-entity>
-          
-          <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-          <a-light type="directional" position="0 1 1" intensity="0.8"></a-light>
+
+          <!-- WKWK Green用 (index 2 - アルファベット順) -->
+          <a-entity mindar-image-target="targetIndex: 2">
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-green-model" animation-mixer></a-gltf-model>
+          </a-entity>
+
+          <!-- WKWK Pencil用 (index 3 - アルファベット順) -->
+          <a-entity mindar-image-target="targetIndex: 3">
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pencil-model" animation-mixer></a-gltf-model>
+          </a-entity>
+
+          <!-- WKWK Pink用 (index 4 - アルファベット順) -->
+          <a-entity mindar-image-target="targetIndex: 4">
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pink-model" animation-mixer></a-gltf-model>
+          </a-entity>
+
+          <!-- 強化されたライティング設定 -->
+          <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
+          <a-light type="directional" position="1 1 1" intensity="1.2" castShadow="false"></a-light>
+          <a-light type="directional" position="-1 1 -1" intensity="0.8" castShadow="false"></a-light>
+          <a-light type="directional" position="0 -1 0" intensity="0.6" castShadow="false"></a-light>
+          <a-light type="hemisphere" color="#ffffff" groundColor="#888888" intensity="1.0"></a-light>
         </a-scene>
       `;
 
@@ -601,6 +642,126 @@ const MarkerARFrame = () => {
                   if (entity.object3D) {
                     console.log(`✅ Model ${index} object3D available:`, entity.object3D);
                     console.log(`Model ${index} children count:`, entity.object3D.children.length);
+
+                    // 軽量なDataTextureで環境マップを作成
+                    try {
+                      const sceneEl = document.querySelector('a-scene') as any;
+                      if (sceneEl && sceneEl.renderer) {
+                        const renderer = sceneEl.renderer;
+
+                        console.log(`🌍 Creating enhanced DataTexture environment map for model ${index}...`);
+
+                        // 高解像度のグラデーション環境マップを作成
+                        const width = 1024;
+                        const height = 512;
+                        const data = new Uint8Array(width * height * 4);
+
+                        // 各ピクセルに色を設定（Equirectangular形式）
+                        for (let y = 0; y < height; y++) {
+                          for (let x = 0; x < width; x++) {
+                            const i = (y * width + x) * 4;
+
+                            // 縦方向の位置（0=上, 1=下）
+                            const v = y / height;
+
+                            // 上半分：明るい空（白→水色のグラデーション）
+                            if (v < 0.5) {
+                              const t = v / 0.5; // 0-1の範囲
+                              // 上部：純白（255, 255, 255）
+                              // 中部：明るい青空（200, 230, 255）
+                              data[i] = 255 - t * 55;      // R: 255 → 200
+                              data[i + 1] = 255 - t * 25;  // G: 255 → 230
+                              data[i + 2] = 255;           // B: 255
+                              data[i + 3] = 255;           // A
+                            }
+                            // 下半分：地面（グレー）
+                            else {
+                              const t = (v - 0.5) / 0.5; // 0-1の範囲
+                              // 中部：明るいグレー（180, 180, 180）
+                              // 下部：少し暗いグレー（120, 120, 120）
+                              const gray = 180 - t * 60;
+                              data[i] = gray;     // R
+                              data[i + 1] = gray; // G
+                              data[i + 2] = gray; // B
+                              data[i + 3] = 255;  // A
+                            }
+                          }
+                        }
+
+                        const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+                        texture.mapping = THREE.EquirectangularReflectionMapping;
+                        texture.needsUpdate = true;
+
+                        console.log(`✅ Enhanced DataTexture created (${width}x${height}) for model ${index}`);
+
+                        // PMREMGeneratorで環境マップを生成
+                        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+                        const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+
+                        console.log(`✅ PMREM environment map generated for model ${index}`);
+
+                        // モデルの全マテリアルに環境マップを適用
+                        entity.object3D.traverse((child: any) => {
+                          if (child.isMesh) {
+                            if (child.material) {
+                              const material = child.material;
+
+                              // マテリアルの基本設定を確認・修正
+                              if (material.color) {
+                                const isBlack = material.color.r === 0 && material.color.g === 0 && material.color.b === 0;
+                                const isVeryDark = material.color.r < 0.1 && material.color.g < 0.1 && material.color.b < 0.1;
+
+                                if (isBlack || isVeryDark) {
+                                  // 黒いまたは非常に暗いマテリアルを白/ゴールドに修正
+                                  if (index === 2) {
+                                    // wkwk-goldの場合はゴールド色に
+                                    material.color.setHex(0xFFD700);
+                                    console.log(`🎨 Fixed black/dark material to gold color for model ${index}`);
+                                  } else {
+                                    material.color.setHex(0xFFFFFF);
+                                    console.log(`🎨 Fixed black/dark material to white for model ${index}`);
+                                  }
+                                }
+                              }
+
+                              // wkwk-goldモデルの場合、追加の設定
+                              if (index === 2) {
+                                // 金属感を強調
+                                if (material.metalness !== undefined) {
+                                  material.metalness = Math.max(material.metalness, 0.9);
+                                }
+                                if (material.roughness !== undefined) {
+                                  material.roughness = Math.min(material.roughness, 0.3);
+                                }
+                              }
+
+                              material.envMap = envMap;
+
+                              // 金属マテリアルの場合は非常に高い強度
+                              if (material.metalness !== undefined && material.metalness > 0.5) {
+                                material.envMapIntensity = 3.0;
+                                console.log(`🌟 Metallic material detected, setting envMap intensity to 3.0`);
+                              } else {
+                                material.envMapIntensity = 1.5;
+                              }
+
+                              material.needsUpdate = true;
+
+                              console.log(`Applied environment map to mesh ${child.name || 'unnamed'} (color: ${material.color ? material.color.getHexString() : 'N/A'}, metalness: ${material.metalness}, roughness: ${material.roughness}, envMapIntensity: ${material.envMapIntensity})`);
+                            }
+                          }
+                        });
+
+                        // クリーンアップ
+                        texture.dispose();
+                        pmremGenerator.dispose();
+
+                        console.log(`✅ Environment map applied to model ${index}`);
+                      }
+                    } catch (envError) {
+                      console.warn(`⚠️ Failed to apply environment map to model ${index}:`, envError);
+                      // 環境マップの適用に失敗してもモデルは表示されるべき
+                    }
                   }
                 });
                 
@@ -613,16 +774,16 @@ const MarkerARFrame = () => {
                 setTimeout(() => {
                   console.log(`Checking model ${index} status after 3 seconds...`);
                   const entity = model as any;
-                  
+
                   if (entity.object3D) {
                     console.log(`✅ Model ${index} has object3D:`, entity.object3D);
                     console.log(`Model ${index} visible:`, entity.object3D.visible);
                     console.log(`Model ${index} children:`, entity.object3D.children);
-                    
+
                     // Force visibility
                     entity.object3D.visible = true;
                     entity.setAttribute('visible', 'true');
-                    
+
                     // Check if model is actually loaded
                     if (entity.object3D.children.length > 0) {
                       console.log(`🎯 Model ${index} has ${entity.object3D.children.length} children - model should be visible!`);
@@ -637,51 +798,39 @@ const MarkerARFrame = () => {
               
               // ターゲット認識イベントを監視
               anchor.addEventListener('targetFound', (event) => {
-                console.log(`🎯🎯🎯 Target ${index} FOUND! Image recognized successfully!`);
-                console.log(`Target ${index} event:`, event);
-                
+                const modelNames = ['wkwk_blue', 'wkwk_gold', 'wkwk_green', 'wkwk_pencil', 'wkwk_pink'];
+                console.log(`🎯🎯🎯 Target ${index} (${modelNames[index]}) FOUND! Image recognized successfully!`);
+
                 // マーカー検出状態を更新
                 setDetectedMarkers(prev => ({ ...prev, [index]: true }));
-                
-                // アンカー内の中間エンティティを取得
-                const anchorEntity = anchor.querySelector(`#${index === 0 ? 'coicoi' : 'wkwk'}-anchor`);
-                if (anchorEntity) {
-                  anchorEntity.setAttribute('visible', 'true');
-                  // 安定したアニメーションを追加（回転を削除してスケールアニメーションに）
-                  anchorEntity.setAttribute('animation', 'property: scale; from: 0.8 0.8 0.8; to: 1.0 1.0 1.0; dur: 300; easing: easeOutQuad');
-                  console.log(`✅ Anchor entity ${index} is now visible with smooth scale animation`);
-                }
-                
-                // GLTFモデルを特別に処理
-                const gltfModel = anchor.querySelector('a-gltf-model');
-                if (gltfModel) {
-                  console.log(`🎯 Stabilizing GLTF model for anchor ${index}`);
-                  gltfModel.setAttribute('visible', 'true');
-                  (gltfModel as any).object3D.visible = true;
-                  
-                  // 固定されたスケールとポジションを設定
-                  if (index === 0) {
-                    // Coicoi model - より安定した設定
-                    gltfModel.setAttribute('scale', `${coicoiScale} ${coicoiScale} ${coicoiScale}`);
-                    gltfModel.setAttribute('position', '0 0.3 0');
-                    gltfModel.setAttribute('rotation', '90 0 0');
-                  } else if (index === 1) {
-                    // WKWK model - より安定した設定
-                    gltfModel.setAttribute('scale', `${wkwkScale} ${wkwkScale} ${wkwkScale}`);
-                    gltfModel.setAttribute('position', '0 0.3 0');
-                    gltfModel.setAttribute('rotation', '90 0 0');
+
+                // モデルの状態を確認
+                const model = anchor.querySelector('a-gltf-model');
+                console.log(`📦 Checking model for target ${index}:`, model);
+                if (model) {
+                  const obj3D = (model as any).object3D;
+                  console.log(`📦 Model object3D:`, obj3D);
+                  console.log(`📦 Model visible:`, obj3D?.visible);
+                  console.log(`📦 Model position:`, obj3D?.position);
+                  console.log(`📦 Model scale:`, obj3D?.scale);
+                  console.log(`📦 Model children count:`, obj3D?.children?.length);
+
+                  // 親エンティティの状態も確認
+                  const parentObj3D = (anchor as any).object3D;
+                  console.log(`📦 Parent (anchor) visible:`, parentObj3D?.visible);
+                  console.log(`📦 Parent (anchor) position:`, parentObj3D?.position);
+
+                  // 強制的に表示
+                  if (obj3D) {
+                    obj3D.visible = true;
+                    obj3D.traverse((child: any) => {
+                      child.visible = true;
+                    });
+                    console.log(`✅ Forced model ${index} to be visible`);
                   }
-                  
-                  // Object3Dの安定化設定
-                  const object3D = (gltfModel as any).object3D;
-                  if (object3D) {
-                    object3D.matrixAutoUpdate = true;
-                    object3D.frustumCulled = false;
-                    console.log(`✅ GLTF model ${index} stabilized with fixed transform`);
-                  }
+                } else {
+                  console.error(`❌ Model NOT FOUND for target ${index}!`);
                 }
-                
-                console.log(`✅ Target ${index} tracking stabilized`);
               });
               
               anchor.addEventListener('targetLost', () => {
@@ -722,7 +871,7 @@ const MarkerARFrame = () => {
             console.log('⏳ Waiting for MindAR to initialize...');
             
             // MindARシステムを直接確認
-            setTimeout(() => {
+            setTimeout(async () => {
               const mindarSystem = (scene as any).systems['mindar-image-system'];
               if (mindarSystem) {
                 console.log('✅ MindAR system found:', mindarSystem);
@@ -746,6 +895,14 @@ const MarkerARFrame = () => {
                   console.log('🎯 MindAR controller found:', mindarSystem.controller);
                   console.log('🎯 Max simultaneous targets:', mindarSystem.controller.maxTrack || 'unknown');
                   console.log('🎯 Current target count:', mindarSystem.controller.targetInfos?.length || 'unknown');
+
+                  // ターゲット情報を詳しく表示
+                  if (mindarSystem.controller.targetInfos) {
+                    console.log('🎯 Target infos:', mindarSystem.controller.targetInfos);
+                    mindarSystem.controller.targetInfos.forEach((targetInfo: any, idx: number) => {
+                      console.log(`🎯 Target ${idx}: width=${targetInfo.width}, height=${targetInfo.height}, dpi=${targetInfo.dpi}`);
+                    });
+                  }
                 } else {
                   console.log('🎯 MindAR controller not yet available, will check later');
                 }
@@ -862,22 +1019,105 @@ const MarkerARFrame = () => {
                 }, 10000);
                 
                 
+                // グローバルなターゲット検出イベントを追加（デバッグ用）
+                scene.addEventListener('targetFound', (e: any) => {
+                  console.log('🎯🎯🎯 GLOBAL TARGET FOUND EVENT:', e);
+                  console.log('Target detail:', e.detail);
+                });
+
+                scene.addEventListener('targetLost', (e: any) => {
+                  console.log('❌ GLOBAL TARGET LOST EVENT:', e);
+                  console.log('Target detail:', e.detail);
+                });
+
                 // 手動でARシステムを開始
                 if (mindarSystem.start) {
                   console.log('Starting MindAR system manually...');
+                  console.log('mindarSystem.start type:', typeof mindarSystem.start);
                   try {
-                    mindarSystem.start();
+                    const startResult = mindarSystem.start();
+                    console.log('✅ MindAR system start() called, result:', startResult);
+
+                    // Promiseの場合とそうでない場合の両方に対応
+                    const handleStartSuccess = () => {
+                      console.log('✅ MindAR system started successfully');
+
+                      // MindAR起動後、少し待ってからターゲット情報を再確認
+                      setTimeout(() => {
+                        console.log('🔍 Checking MindAR state after startup...');
+                        const controller = mindarSystem.controller;
+                        if (controller) {
+                          console.log('🎯 Controller state:', controller);
+                          console.log('🎯 Controller intTargets:', controller.intTargets);
+                          console.log('🎯 Controller trackingStates:', controller.trackingStates);
+
+                          if (controller.targetInfos && controller.targetInfos.length > 0) {
+                            console.log(`✅ Found ${controller.targetInfos.length} targets in controller`);
+                            controller.targetInfos.forEach((targetInfo: any, idx: number) => {
+                              console.log(`🎯 Target ${idx}:`, targetInfo);
+                            });
+
+                            // フレームごとに追跡状態を監視
+                            let frameCount = 0;
+                            const monitorTracking = () => {
+                              frameCount++;
+
+                              // 30フレームごと（約1秒ごと）にログ出力
+                              if (frameCount % 30 === 0) {
+                                const states = controller.trackingStates;
+                                if (states) {
+                                  const activeTargets = states.filter((s: any) => s !== null);
+                                  if (activeTargets.length > 0) {
+                                    console.log(`📊 Frame ${frameCount}: ${activeTargets.length} target(s) detected!`, activeTargets);
+                                  }
+                                }
+                              }
+
+                              if (frameCount < 600) { // 20秒間監視
+                                requestAnimationFrame(monitorTracking);
+                              }
+                            };
+
+                            console.log('📊 Starting tracking state monitor for 20 seconds...');
+                            requestAnimationFrame(monitorTracking);
+
+                          } else {
+                            console.warn('⚠️ No target infos found in controller!');
+                            console.warn('This means targets.mind file may not be loaded correctly');
+                          }
+                        } else {
+                          console.error('❌ Controller is still null after MindAR start');
+                        }
+                      }, 2000);
+                    };
+
+                    // Promiseかどうかチェック
+                    if (startResult && typeof startResult.then === 'function') {
+                      console.log('start() returned a Promise, waiting...');
+                      startResult.then(handleStartSuccess).catch((err: Error) => {
+                        console.error('❌ MindAR start promise rejected:', err);
+                      });
+                    } else {
+                      // 同期的に完了
+                      handleStartSuccess();
+                    }
+
                   } catch (err) {
-                    console.warn('MindAR start failed, will try later:', err);
+                    console.error('❌ MindAR start failed:', err);
+                    console.error('Error details:', {
+                      name: (err as Error).name,
+                      message: (err as Error).message,
+                      stack: (err as Error).stack
+                    });
                     // リトライ機構
                     setTimeout(() => {
                       try {
                         if (mindarSystem.start) {
                           mindarSystem.start();
-                          console.log('MindAR started on retry');
+                          console.log('✅ MindAR start() called on retry');
                         }
                       } catch (retryErr) {
-                        console.error('MindAR start retry failed:', retryErr);
+                        console.error('❌ MindAR start retry failed:', retryErr);
                       }
                     }, 1000);
                   }
@@ -948,116 +1188,47 @@ const MarkerARFrame = () => {
       
       setIsStarted(true);
       console.log('AR initialized successfully');
-      
-      // ピンチジェスチャーの処理を追加
-      const handleTouchStart = (e: TouchEvent) => {
-        // ピンチジェスチャーのみ処理（他のタッチイベントは妨げない）
-        if (e.touches.length === 2) {
-          e.preventDefault(); // スクロールや他のジェスチャーを防ぐ
-          const touch1 = e.touches[0];
-          const touch2 = e.touches[1];
-          const distance = Math.hypot(
-            touch2.clientX - touch1.clientX,
-            touch2.clientY - touch1.clientY
-          );
-          touchStartDistance.current = distance;
-          console.log('🤏 Pinch gesture started, distance:', distance);
-        }
-      };
-      
-      const handleTouchMove = (e: TouchEvent) => {
-        if (e.touches.length === 2 && touchStartDistance.current) {
-          e.preventDefault(); // スクロールや他のジェスチャーを防ぐ
-          const touch1 = e.touches[0];
-          const touch2 = e.touches[1];
-          const currentDistance = Math.hypot(
-            touch2.clientX - touch1.clientX,
-            touch2.clientY - touch1.clientY
-          );
-          
-          const scale = currentDistance / touchStartDistance.current;
-          
-          // より敏感で直感的なスケール変更（制限を緩和）
-          const sensitiveScale = Math.max(0.8, Math.min(1.2, scale)); // より大きな範囲を許可
-          
-          // それぞれのモデルを個別にスケール（より広い範囲）
-          const newCoicoiScale = Math.max(0.1, Math.min(5.0, currentCoicoiScale.current * sensitiveScale));
-          const newWkwkScale = Math.max(0.1, Math.min(5.0, currentWkwkScale.current * sensitiveScale));
-          
-          // モデルのスケールを更新（アンカーエンティティ経由で安定化）
-          const coicoiAnchor = document.querySelector('#coicoi-anchor');
-          const wkwkAnchor = document.querySelector('#wkwk-anchor');
-          
-          if (coicoiAnchor) {
-            coicoiAnchor.setAttribute('scale', `${newCoicoiScale} ${newCoicoiScale} ${newCoicoiScale}`);
-          }
-          if (wkwkAnchor) {
-            wkwkAnchor.setAttribute('scale', `${newWkwkScale} ${newWkwkScale} ${newWkwkScale}`);
-          }
-          
-          // より頻繁にスケールを更新（閾値を下げる）
-          if (Math.abs(sensitiveScale - 1.0) > 0.005) { // より小さな変化でも反応
-            currentCoicoiScale.current = newCoicoiScale;
-            currentWkwkScale.current = newWkwkScale;
-            setCoicoiScale(newCoicoiScale);
-            setWkwkScale(newWkwkScale);
-            console.log(`🤏 Pinch scaling: coicoi=${newCoicoiScale.toFixed(2)}, wkwk=${newWkwkScale.toFixed(2)}`);
-          }
-          
-          // 距離を頻繁に更新してスムーズな操作を実現
-          touchStartDistance.current = currentDistance;
-        }
-      };
-      
-      const handleTouchEnd = () => {
-        touchStartDistance.current = null;
-      };
-      
-      // タッチハンドラの参照を保存
-      touchHandlersRef.current = {
-        handleTouchStart,
-        handleTouchMove,
-        handleTouchEnd
-      };
-      
-      // イベントリスナーを追加（ピンチジェスチャー用は非passive）
-      document.addEventListener('touchstart', handleTouchStart, { passive: false });
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.addEventListener('touchend', handleTouchEnd, { passive: false });
-      
+
     } catch (err) {
       console.error('AR initialization failed:', err);
-      setError('AR初期化に失敗しました');
+      console.error('Error details:', {
+        name: (err as Error).name,
+        message: (err as Error).message,
+        stack: (err as Error).stack
+      });
+      setError(`AR初期化に失敗しました: ${(err as Error).message || '不明なエラー'}`);
     }
   };
 
-  const stopAR = async () => {
+  const stopAR = useCallback(async () => {
     console.log('Stopping AR session...');
-    
+
     try {
       // MindARシステムを適切に停止
       const scene = containerRef.current?.querySelector('a-scene');
       if (scene && (scene as any).systems && (scene as any).systems['mindar-image-system']) {
         console.log('Stopping MindAR system...');
         const mindarSystem = (scene as any).systems['mindar-image-system'];
-        
+
         // stop()メソッドを呼び出し（nullチェックを追加）
-        if (mindarSystem.stop && mindarSystem.controller) {
+        if (mindarSystem && typeof mindarSystem.stop === 'function' && mindarSystem.controller) {
           try {
             await mindarSystem.stop();
             console.log('MindAR system stopped');
           } catch (err) {
-            console.error('Error stopping MindAR:', err);
+            console.warn('Error stopping MindAR (non-critical):', err);
+            // エラーでも続行
           }
         }
-        
+
         // pause()も呼び出して確実に停止（nullチェックを追加）
-        if (mindarSystem.pause && mindarSystem.controller) {
+        if (mindarSystem && typeof mindarSystem.pause === 'function' && mindarSystem.controller) {
           try {
             mindarSystem.pause();
             console.log('MindAR system paused');
           } catch (err) {
-            console.error('Error pausing MindAR:', err);
+            console.warn('Error pausing MindAR (non-critical):', err);
+            // エラーでも続行
           }
         }
       }
@@ -1080,12 +1251,12 @@ const MarkerARFrame = () => {
         video.src = '';
         video.load();
       });
-      
+
       // グローバルに残留しているARカメラvideo要素を削除
       const globalVideos = document.querySelectorAll('video');
       globalVideos.forEach(video => {
         // ARカメラらしい特徴を持つvideo要素のみ削除
-        if (video.autoplay && video.muted && video.playsInline && 
+        if (video.autoplay && video.muted && video.playsInline &&
             (video.width > 100 || video.height > 100)) {
           console.log('Removing AR camera video element');
           if (video.srcObject) {
@@ -1095,7 +1266,7 @@ const MarkerARFrame = () => {
           video.remove();
         }
       });
-      
+
       // メディアデバイスの全ストリームを停止
       if (navigator.mediaDevices) {
         try {
@@ -1107,7 +1278,7 @@ const MarkerARFrame = () => {
       }
 
       // 先にvideo/canvas要素を処理してからコンテナを削除
-      // A-Frameシーンを完全に削除  
+      // A-Frameシーンを完全に削除
       if (containerRef.current) {
         // 先にイベントリスナーを削除
         const sceneEl = containerRef.current.querySelector('a-scene');
@@ -1133,7 +1304,7 @@ const MarkerARFrame = () => {
         console.log('Removing MindAR UI element:', overlay.className);
         overlay.remove();
       });
-      
+
       // A-Frame関連の要素をすべて削除
       const aframeElements = document.querySelectorAll('a-scene, a-assets, a-camera, a-entity');
       aframeElements.forEach(el => {
@@ -1144,15 +1315,15 @@ const MarkerARFrame = () => {
       // MindARのスタイルとオーバーレイを強制削除
       const allElements = document.querySelectorAll('*');
       allElements.forEach(el => {
-        if (el.classList.contains('mindar-ui-overlay') || 
-            el.classList.contains('mindar-ui-scanning') || 
+        if (el.classList.contains('mindar-ui-overlay') ||
+            el.classList.contains('mindar-ui-scanning') ||
             el.classList.contains('mindar-ui-loading') ||
             ((el as HTMLElement).style.position === 'fixed' && (el as HTMLElement).style.zIndex === '10000')) {
           console.log('Force removing MindAR overlay:', el);
           el.remove();
         }
       });
-      
+
       // 残留するcanvas要素を削除
       const canvasElements = document.querySelectorAll('canvas');
       canvasElements.forEach(canvas => {
@@ -1166,28 +1337,14 @@ const MarkerARFrame = () => {
       document.body.style.cssText = '';
       document.documentElement.style.cssText = '';
 
-      // タッチイベントリスナーを正しく削除（非passive対応）
-      if (touchHandlersRef.current.handleTouchStart) {
-        document.removeEventListener('touchstart', touchHandlersRef.current.handleTouchStart, { passive: false } as any);
-      }
-      if (touchHandlersRef.current.handleTouchMove) {
-        document.removeEventListener('touchmove', touchHandlersRef.current.handleTouchMove, { passive: false } as any);
-      }
-      if (touchHandlersRef.current.handleTouchEnd) {
-        document.removeEventListener('touchend', touchHandlersRef.current.handleTouchEnd, { passive: false } as any);
-      }
-      
-      // 参照をクリア
-      touchHandlersRef.current = {};
-
       setIsStarted(false);
       console.log('AR session stopped successfully');
-      
+
     } catch (error) {
       console.error('Error stopping AR:', error);
       setIsStarted(false);
     }
-  };
+  }, []); // refとstate setterは安定した参照なので依存配列は空でOK
 
 
   // 戻る処理関数
@@ -1241,6 +1398,26 @@ const MarkerARFrame = () => {
 
   const capturePhoto = async () => {
     if (!containerRef.current) return;
+
+    // 現在検出中のマーカーのモデルを収集
+    const detectedModelNames: string[] = [];
+    Object.entries(detectedMarkers).forEach(([indexStr, isDetected]) => {
+      if (isDetected) {
+        const index = parseInt(indexStr);
+        const modelName = index === 0 ? 'coicoi' : index === 1 ? 'wkwk' : 'wkwk_gold';
+        if (!collectedModels.includes(modelName)) {
+          detectedModelNames.push(modelName);
+        }
+      }
+    });
+
+    // 新しく検出したモデルがあればGetメッセージを表示
+    if (detectedModelNames.length > 0) {
+      setCollectedModels(prev => [...prev, ...detectedModelNames]);
+      setShowGetMessage(true);
+      setTimeout(() => setShowGetMessage(false), 2000);
+      console.log('🎉 New models collected:', detectedModelNames);
+    }
 
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 150);
@@ -1552,31 +1729,31 @@ const MarkerARFrame = () => {
         e.stopPropagation();
         e.stopImmediatePropagation();
         console.log('🟢 Back button activated (simple)!');
-        
+
         // ARが開始されている場合は停止
         if (isStarted) {
           console.log('🔄 Stopping AR before navigation...');
           await stopAR();
         }
-        
+
         // 直接ナビゲーション（履歴を増やさない）
         router.replace('/start');
       };
 
       // ネイティブイベントリスナーを登録 - より確実な方法
-      const handleTouchStart = (e: TouchEvent) => {
+      const handleTouchStart = async (e: TouchEvent) => {
         console.log('🟢 Back button touchstart!');
-        handleBackClick(e);
+        await handleBackClick(e);
       };
 
-      const handleClick = (e: MouseEvent) => {
+      const handleClick = async (e: MouseEvent) => {
         console.log('🟢 Back button click!');
-        handleBackClick(e);
+        await handleBackClick(e);
       };
 
-      const handlePointerDown = (e: PointerEvent) => {
+      const handlePointerDown = async (e: PointerEvent) => {
         console.log('🟢 Back button pointerdown!');
-        handleBackClick(e);
+        await handleBackClick(e);
       };
 
       // より高い優先度でイベントリスナーを登録
@@ -1587,10 +1764,10 @@ const MarkerARFrame = () => {
       return () => {
         // クリーンアップ
         button.removeEventListener('touchstart', handleTouchStart, { capture: true } as any);
-        button.removeEventListener('click', handleClick, { capture: true } as any);  
+        button.removeEventListener('click', handleClick, { capture: true } as any);
         button.removeEventListener('pointerdown', handlePointerDown, { capture: true } as any);
       };
-    }, [isStarted]); // isStartedに依存させてAR状態の変化を監視
+    }, [isStarted, router, stopAR]); // 依存配列を完全にする
 
     return (
       <button
@@ -1676,7 +1853,7 @@ const MarkerARFrame = () => {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-    const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
+    const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const modelRef = useRef<THREE.Object3D | null>(null);
     const frameIdRef = useRef<number | null>(null);
     
@@ -1688,7 +1865,6 @@ const MarkerARFrame = () => {
     const rotationStart = useRef({ x: 0, y: 0 });
     const touchStartDistance = useRef<number | null>(null);
     const initialScale = useRef(1);
-    const needsRender = useRef(false);
     
     useEffect(() => {
       if (!mountRef.current) return;
@@ -1699,42 +1875,20 @@ const MarkerARFrame = () => {
       
       // シーン作成
       const scene = new THREE.Scene();
-      
-      // グラデーション背景を作成して奥行きを演出
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const context = canvas.getContext('2d')!;
-      
-      // 放射状グラデーション作成
-      const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
-      gradient.addColorStop(0, '#2a2a40');  // 中心: ライトグレー
-      gradient.addColorStop(0.5, '#1e1e2e'); // 中間: ミディアムグレー
-      gradient.addColorStop(1, '#0f0f1a');   // 外側: ダークグレー
-      
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, 512, 512);
-      
-      const texture = new THREE.CanvasTexture(canvas);
-      scene.background = texture;
+
+      // 明るいグレーの背景色を設定
+      scene.background = new THREE.Color(0xe0e0e0); // 明るいグレー
       sceneRef.current = scene;
-      
-      // 並行投影カメラ作成
-      const frustumSize = 5;
-      const camera = new THREE.OrthographicCamera(
-        frustumSize * aspect / -2,
-        frustumSize * aspect / 2,
-        frustumSize / 2,
-        frustumSize / -2,
-        0.1,
-        1000
-      );
-      camera.position.z = 5;
+
+      // パースペクティブカメラ作成（視野角を広く、カメラを遠くに配置）
+      const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 2000);
+      camera.position.set(0, 0, 8);
       camera.lookAt(0, 0, 0);
       cameraRef.current = camera;
-      
+      console.log('Camera created at position:', camera.position);
+
       // レンダラー作成（パフォーマンス最適化）
-      const renderer = new THREE.WebGLRenderer({ 
+      const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: false,
         powerPreference: 'high-performance'
@@ -1742,42 +1896,132 @@ const MarkerARFrame = () => {
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 高解像度デバイスでのパフォーマンス向上
       renderer.shadowMap.enabled = false; // シャドウ無効でパフォーマンス向上
+      renderer.outputColorSpace = THREE.SRGBColorSpace; // 正しい色空間
+
+      // canvasのスタイルを明示的に設定
+      renderer.domElement.style.width = '100%';
+      renderer.domElement.style.height = '100%';
+      renderer.domElement.style.display = 'block';
+      renderer.domElement.style.touchAction = 'none'; // タッチイベントの干渉を防ぐ
+
       mountRef.current.appendChild(renderer.domElement);
       rendererRef.current = renderer;
-      
-      // ライト追加
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      console.log('Renderer created and mounted');
+
+      // ライト追加 - より明るく、あらゆる角度から照らす
+      const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
       scene.add(ambientLight);
-      
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(1, 1, 1);
-      scene.add(directionalLight);
-      
-      // モデル読み込み（初期サイズを1/2に）
+      console.log('Ambient light added');
+
+      const directionalLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
+      directionalLight1.position.set(5, 5, 5);
+      scene.add(directionalLight1);
+
+      const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.5);
+      directionalLight2.position.set(-5, 5, -5);
+      scene.add(directionalLight2);
+
+      const directionalLight3 = new THREE.DirectionalLight(0xffffff, 1.0);
+      directionalLight3.position.set(0, -5, 0);
+      scene.add(directionalLight3);
+      console.log('All lights added');
+
+      // モデル読み込み
+      const modelPath = `/${modelName}.glb`;
+      console.log('=== Starting to load model ===');
+      console.log('Model name:', modelName);
+      console.log('Model path:', modelPath);
+      console.log('Full URL:', window.location.origin + modelPath);
+
       const loader = new GLTFLoader();
       loader.load(
-        `/${modelName}.glb`,
+        modelPath,
         (gltf) => {
+          console.log('=== ✅ GLB loaded successfully ===');
+          console.log('Model name:', modelName);
+          console.log('GLTF object:', gltf);
+          console.log('GLTF scene:', gltf.scene);
+
           const model = gltf.scene;
-          const baseScale = modelName === 'coicoi' ? 0.75 : 0.5; // 元の1.5と1.0の半分
-          model.scale.setScalar(baseScale);
-          
-          // coicoiモデルの場合は位置を下に調整して画面中央に配置
-          if (modelName === 'coicoi') {
-            model.position.y = -0.8; // モデルを下に移動
-          }
-          
-          modelRef.current = model;
-          scene.add(model);
+          console.log('Model scene:', model);
+          console.log('Model children count:', model.children.length);
+
+          // バウンディングボックスを計算
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+
+          console.log('Model size:', size.x, size.y, size.z);
+          console.log('Model center:', center.x, center.y, center.z);
+
+          // モデルを中央に配置
+          const wrapper = new THREE.Group();
+          wrapper.add(model);
+
+          // モデルを中心に配置
+          model.position.set(-center.x, -center.y, -center.z);
+          console.log('Model centered at:', model.position);
+
+          // モデルのサイズに基づいてスケールを調整
+          const maxSize = Math.max(size.x, size.y, size.z);
+          const targetSize = 2.5; // 画面に収まるサイズ
+          const scale = targetSize / maxSize;
+          wrapper.scale.setScalar(scale);
+          console.log('Wrapper scale set to:', scale, 'maxSize:', maxSize, 'targetSize:', targetSize);
+
+          // baseScaleを保存
+          wrapper.userData.baseScale = scale;
+
+          // 初期回転を設定（モデルを見やすい角度に）
+          wrapper.rotation.x = 0.2;
+          wrapper.rotation.y = 0.5;
+
+          // モデルのマテリアルを確認し、必要に応じて修正
+          let meshCount = 0;
+          model.traverse((child: any) => {
+            if (child.isMesh) {
+              meshCount++;
+              console.log('Mesh found:', child.name, 'Material:', child.material?.type);
+
+              // マテリアルが存在し、正しく設定されているか確認
+              if (child.material) {
+                // Double-sidedにして確実に見えるようにする
+                child.material.side = THREE.DoubleSide;
+                // マテリアルを更新
+                child.material.needsUpdate = true;
+              }
+            }
+          });
+          console.log('Total meshes found:', meshCount);
+
+          // wrapperをシーンに追加
+          modelRef.current = wrapper;
+          scene.add(wrapper);
+          console.log('=== ✅ Model wrapper added to scene ===');
+          console.log('Scene children count:', scene.children.length);
+          console.log('Wrapper position:', wrapper.position);
+          console.log('Wrapper rotation:', wrapper.rotation);
+          console.log('Wrapper scale:', wrapper.scale);
         },
-        undefined,
+        (progress) => {
+          const percent = progress.total > 0 ? (progress.loaded / progress.total * 100).toFixed(2) : '0';
+          console.log(`Loading ${modelName}: ${percent}%`);
+        },
         (error) => {
-          console.error('Error loading model:', error);
+          console.error('=== ❌ Error loading model ===');
+          console.error('Model name:', modelName);
+          console.error('Error details:', error);
+          console.error('Error message:', error.message);
+          console.error('Model path attempted:', modelPath);
+
+          // エラーテキストを画面に表示
+          alert(`モデルのロードに失敗しました: ${modelName}\nパス: ${modelPath}\nエラー: ${error.message}`);
         }
       );
       
       // マウスドラッグイベント（直接refを更新してパフォーマンス向上）
       const handleMouseDown = (e: MouseEvent) => {
+        console.log('Mouse down event');
         e.preventDefault();
         isDragging.current = true;
         dragStart.current = { x: e.clientX, y: e.clientY };
@@ -1796,7 +2040,6 @@ const MarkerARFrame = () => {
           x: rotationStart.current.x + deltaY * 0.008,
           y: rotationStart.current.y + deltaX * 0.008
         };
-        needsRender.current = true;
       };
       
       const handleMouseUp = (e: MouseEvent) => {
@@ -1806,6 +2049,7 @@ const MarkerARFrame = () => {
       
       // タッチイベント（直接refを更新）
       const handleTouchStart = (e: TouchEvent) => {
+        console.log('Touch start event, touches:', e.touches.length);
         e.preventDefault();
         if (e.touches.length === 1) {
           // シングルタッチ：回転
@@ -1839,7 +2083,6 @@ const MarkerARFrame = () => {
             x: rotationStart.current.x + deltaY * 0.006,
             y: rotationStart.current.y + deltaX * 0.006
           };
-          needsRender.current = true;
         } else if (e.touches.length === 2 && touchStartDistance.current) {
           // ピンチ：拡大縮小
           const touch1 = e.touches[0];
@@ -1848,10 +2091,9 @@ const MarkerARFrame = () => {
             touch2.clientX - touch1.clientX,
             touch2.clientY - touch1.clientY
           );
-          
+
           const scale = currentDistance / touchStartDistance.current;
           modelScale.current = Math.max(0.2, Math.min(4, initialScale.current * scale));
-          needsRender.current = true;
         }
       };
       
@@ -1866,10 +2108,10 @@ const MarkerARFrame = () => {
         e.preventDefault();
         const delta = e.deltaY * -0.002;
         modelScale.current = Math.max(0.2, Math.min(4, modelScale.current + delta));
-        needsRender.current = true;
       };
       
       // イベントリスナー登録
+      console.log('Registering event listeners on canvas');
       renderer.domElement.addEventListener('mousedown', handleMouseDown);
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
@@ -1877,40 +2119,51 @@ const MarkerARFrame = () => {
       renderer.domElement.addEventListener('touchmove', handleTouchMove, { passive: false });
       renderer.domElement.addEventListener('touchend', handleTouchEnd);
       renderer.domElement.addEventListener('wheel', handleWheel, { passive: false });
+      console.log('Event listeners registered successfully');
       
-      // アニメーションループ（必要な時だけレンダリング）
+      // アニメーションループ（継続的にレンダリング）
+      let frameCount = 0;
       const animate = () => {
         frameIdRef.current = requestAnimationFrame(animate);
-        
-        // 変更があった時だけレンダリング（パフォーマンス大幅向上）
-        if (needsRender.current && modelRef.current) {
+
+        // モデルが存在する場合は回転とスケールを更新
+        if (modelRef.current) {
           modelRef.current.rotation.x = modelRotation.current.x;
           modelRef.current.rotation.y = modelRotation.current.y;
-          const baseScale = modelName === 'coicoi' ? 0.75 : 0.5;
-          modelRef.current.scale.setScalar(baseScale * modelScale.current);
-          
-          renderer.render(scene, camera);
-          needsRender.current = false; // レンダリング完了フラグリセット
+          // スケールはモデル読み込み時に設定された値にmodelScale.currentを掛ける
+          const currentScale = modelRef.current.userData.baseScale || 1;
+          modelRef.current.scale.setScalar(currentScale * modelScale.current);
+        }
+
+        renderer.render(scene, camera);
+
+        // 最初の10フレームで詳細なログ出力
+        frameCount++;
+        if (frameCount <= 10) {
+          console.log(`Frame ${frameCount}:`);
+          console.log('  - Model present:', !!modelRef.current);
+          console.log('  - Scene children:', scene.children.length);
+          console.log('  - Camera position:', camera.position);
+          if (modelRef.current) {
+            console.log('  - Model position:', modelRef.current.position);
+            console.log('  - Model scale:', modelRef.current.scale);
+            console.log('  - Model visible:', modelRef.current.visible);
+          }
         }
       };
-      
-      // 初回レンダリング
-      needsRender.current = true;
+
+      console.log('Starting animation loop');
+      console.log('Initial scene children:', scene.children.length);
       animate();
-      
+
       // リサイズハンドラー
       const handleResize = () => {
         const width = window.innerWidth;
         const height = window.innerHeight;
-        const aspect = width / height;
-        const frustumSize = 5;
-        
-        camera.left = frustumSize * aspect / -2;
-        camera.right = frustumSize * aspect / 2;
-        camera.top = frustumSize / 2;
-        camera.bottom = frustumSize / -2;
+
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        
+
         renderer.setSize(width, height);
       };
       window.addEventListener('resize', handleResize);
@@ -1936,17 +2189,17 @@ const MarkerARFrame = () => {
     }, [modelName]); // modelNameのみに依存
     
     return (
-      <div className="fixed inset-0 bg-black z-50">
+      <div className="fixed inset-0 z-50" style={{ backgroundColor: '#e0e0e0' }}>
         <div ref={mountRef} className="w-full h-full" />
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 w-12 h-12 bg-white/20 backdrop-blur-lg rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+          className="absolute top-4 right-4 w-12 h-12 bg-black/20 backdrop-blur-lg rounded-full flex items-center justify-center hover:bg-black/30 transition-colors"
           title="閉じる"
         >
-          <X className="w-6 h-6 text-white" />
+          <X className="w-6 h-6 text-black" />
         </button>
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white text-center pointer-events-none">
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-black text-center pointer-events-none">
           <h2 className="text-2xl font-bold mb-2">{modelName.toUpperCase()} Model</h2>
           <p className="text-sm opacity-75">ドラッグで回転 • ピンチ/スクロールで拡大</p>
         </div>
@@ -2023,7 +2276,7 @@ const MarkerARFrame = () => {
             >
               <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
               <div className="text-white font-bold text-lg">
-                {modelName === 'coicoi' ? '🔴' : '🟡'}
+                {modelName === 'coicoi' ? '🔴' : modelName === 'wkwk' ? '🟡' : '🏆'}
               </div>
               <div className="absolute -bottom-1 text-xs text-white font-semibold bg-black/30 px-2 rounded">
                 {modelName}

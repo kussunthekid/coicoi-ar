@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
-const MarkerAR = dynamic(() => import('@/components/MarkerARFrame'), {
+const SimpleMarkerAR = dynamic(() => import('@/components/SimpleMarkerAR'), {
   ssr: false,
   loading: () => (
     <div className="fixed inset-0 bg-black flex items-center justify-center">
@@ -15,5 +15,5 @@ const MarkerAR = dynamic(() => import('@/components/MarkerARFrame'), {
 });
 
 export default function MarkerPage() {
-  return <MarkerAR />;
+  return <SimpleMarkerAR />;
 }

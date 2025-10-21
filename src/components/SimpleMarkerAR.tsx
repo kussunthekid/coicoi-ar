@@ -134,11 +134,21 @@ const SimpleMarkerAR = () => {
 
         if (!isMounted) return;
 
-        // A-Frameシーンを作成
+        // A-Frameシーンを作成（5つの個別ターゲットファイルを使用）
         if (containerRef.current) {
-          containerRef.current.innerHTML = `
+          const targetConfigs = [
+            { file: 'targets_blue.mind', model: 'wkwk_blue' },
+            { file: 'targets_gold.mind', model: 'wkwk_gold' },
+            { file: 'targets_green.mind', model: 'wkwk_green' },
+            { file: 'targets_pencil.mind', model: 'wkwk_pencil' },
+            { file: 'targets_pink.mind', model: 'wkwk_pink' }
+          ];
+
+          // 5つのシーンを生成
+          const scenesHTML = targetConfigs.map((config, index) => `
             <a-scene
-              mindar-image="imageTargetSrc: /targets.mind; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5; showStats: true"
+              id="scene-${config.model}"
+              mindar-image="imageTargetSrc: /${config.file}; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
               color-space="sRGB"
               renderer="colorManagement: true, physicallyCorrectLights: true"
               vr-mode-ui="enabled: false"
@@ -146,34 +156,8 @@ const SimpleMarkerAR = () => {
               webxr="optionalFeatures: dom-overlay, dom-overlay-for-handheld-ar"
               style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; margin: 0; padding: 0;"
             >
-              <style>
-                .a-canvas {
-                  position: fixed !important;
-                  top: 0 !important;
-                  left: 0 !important;
-                  width: 100vw !important;
-                  height: 100vh !important;
-                  pointer-events: none !important;
-                }
-                video {
-                  position: fixed !important;
-                  top: 0 !important;
-                  left: 0 !important;
-                  width: 100vw !important;
-                  height: 100vh !important;
-                  object-fit: cover !important;
-                  pointer-events: none !important;
-                }
-                a-scene {
-                  pointer-events: none !important;
-                }
-              </style>
               <a-assets>
-                <a-asset-item id="wkwk-blue-model" src="/wkwk_blue.glb"></a-asset-item>
-                <a-asset-item id="wkwk-gold-model" src="/wkwk_gold.glb"></a-asset-item>
-                <a-asset-item id="wkwk-green-model" src="/wkwk_green.glb"></a-asset-item>
-                <a-asset-item id="wkwk-pencil-model" src="/wkwk_pencil.glb"></a-asset-item>
-                <a-asset-item id="wkwk-pink-model" src="/wkwk_pink.glb"></a-asset-item>
+                <a-asset-item id="${config.model}-model-${index}" src="/${config.model}.glb"></a-asset-item>
               </a-assets>
 
               <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
@@ -186,102 +170,124 @@ const SimpleMarkerAR = () => {
               <a-light type="hemisphere" color="#ffffff" ground-color="#cccccc" intensity="1.5"></a-light>
 
               <a-entity mindar-image-target="targetIndex: 0">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-blue-model" animation-mixer class="brightModel"></a-gltf-model>
-              </a-entity>
-              <a-entity mindar-image-target="targetIndex: 1">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-gold-model" animation-mixer class="brightModel"></a-gltf-model>
-              </a-entity>
-              <a-entity mindar-image-target="targetIndex: 2">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-green-model" animation-mixer class="brightModel"></a-gltf-model>
-              </a-entity>
-              <a-entity mindar-image-target="targetIndex: 3">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pencil-model" animation-mixer class="brightModel"></a-gltf-model>
-              </a-entity>
-              <a-entity mindar-image-target="targetIndex: 4">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pink-model" animation-mixer class="brightModel"></a-gltf-model>
+                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#${config.model}-model-${index}" animation-mixer class="brightModel"></a-gltf-model>
               </a-entity>
             </a-scene>
+          `).join('');
+
+          containerRef.current.innerHTML = `
+            <style>
+              .a-canvas {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                pointer-events: none !important;
+              }
+              video {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                object-fit: cover !important;
+                pointer-events: none !important;
+              }
+              a-scene {
+                pointer-events: none !important;
+              }
+            </style>
+            ${scenesHTML}
           `;
 
-          // A-Frameシーンが完全に読み込まれるまで待機
+          // 全てのA-Frameシーンが完全に読み込まれるまで待機
           await new Promise((resolve) => {
-            const scene = document.querySelector('a-scene');
-            if (scene) {
-              // render-targetイベントでレンダラーを設定
-              scene.addEventListener('render-target-loaded', () => {
-                const sceneEl = scene as any;
-                if (sceneEl.renderer) {
-                  console.log('Setting up renderer for screenshot capability');
-                  sceneEl.renderer.preserveDrawingBuffer = true;
-                }
-              });
+            const scenes = document.querySelectorAll('a-scene');
+            let loadedCount = 0;
+            const totalScenes = 5;
 
-              // MindAR arReady event
-              scene.addEventListener('arReady', () => {
-                console.log('MindAR is ready');
+            if (scenes.length > 0) {
+              scenes.forEach((scene, sceneIndex) => {
+                // render-targetイベントでレンダラーを設定
+                scene.addEventListener('render-target-loaded', () => {
+                  const sceneEl = scene as any;
+                  if (sceneEl.renderer) {
+                    console.log(`Scene ${sceneIndex}: Setting up renderer for screenshot capability`);
+                    sceneEl.renderer.preserveDrawingBuffer = true;
+                  }
+                });
 
-                // スマホ用：カメラ設定を確認・調整
-                const video = scene.querySelector('video');
-                if (video) {
-                  console.log('Camera resolution:', video.videoWidth, 'x', video.videoHeight);
-                  console.log('Video ready state:', video.readyState);
-                }
-              });
+                // MindAR arReady event
+                scene.addEventListener('arReady', () => {
+                  console.log(`Scene ${sceneIndex}: MindAR is ready`);
 
-              scene.addEventListener('arError', (event: any) => {
-                console.error('MindAR Error:', event.detail);
-              });
+                  // スマホ用：カメラ設定を確認・調整
+                  const video = scene.querySelector('video');
+                  if (video) {
+                    console.log(`Scene ${sceneIndex}: Camera resolution:`, video.videoWidth, 'x', video.videoHeight);
+                  }
+                });
 
-              scene.addEventListener('loaded', () => {
-                console.log('A-Frame scene loaded event');
+                scene.addEventListener('arError', (event: any) => {
+                  console.error(`Scene ${sceneIndex}: MindAR Error:`, event.detail);
+                });
 
-                // 全てのモデルのマテリアルを明るく設定
-                setTimeout(() => {
-                  const models = document.querySelectorAll('a-gltf-model');
-                  models.forEach((modelEl) => {
-                    const model = (modelEl as any).object3D;
-                    if (model) {
-                      model.traverse((child: any) => {
-                        if (child.isMesh && child.material) {
-                          // マテリアルを明るく調整
-                          if (Array.isArray(child.material)) {
-                            child.material.forEach((mat: any) => {
-                              mat.emissive = mat.emissive || new (window as any).THREE.Color(0x222222);
-                              mat.emissiveIntensity = 0.3;
-                              if (mat.color) {
-                                mat.color.r = Math.min(1.0, mat.color.r * 1.4);
-                                mat.color.g = Math.min(1.0, mat.color.g * 1.4);
-                                mat.color.b = Math.min(1.0, mat.color.b * 1.4);
+                scene.addEventListener('loaded', () => {
+                  loadedCount++;
+                  console.log(`A-Frame scene ${sceneIndex} loaded (${loadedCount}/${totalScenes})`);
+
+                  // このシーンのモデルのマテリアルを明るく設定
+                  setTimeout(() => {
+                    const models = scene.querySelectorAll('a-gltf-model');
+                    models.forEach((modelEl) => {
+                      const model = (modelEl as any).object3D;
+                      if (model) {
+                        model.traverse((child: any) => {
+                          if (child.isMesh && child.material) {
+                            // マテリアルを明るく調整
+                            if (Array.isArray(child.material)) {
+                              child.material.forEach((mat: any) => {
+                                mat.emissive = mat.emissive || new (window as any).THREE.Color(0x222222);
+                                mat.emissiveIntensity = 0.3;
+                                if (mat.color) {
+                                  mat.color.r = Math.min(1.0, mat.color.r * 1.4);
+                                  mat.color.g = Math.min(1.0, mat.color.g * 1.4);
+                                  mat.color.b = Math.min(1.0, mat.color.b * 1.4);
+                                }
+                                mat.needsUpdate = true;
+                              });
+                            } else {
+                              child.material.emissive = child.material.emissive || new (window as any).THREE.Color(0x222222);
+                              child.material.emissiveIntensity = 0.3;
+                              if (child.material.color) {
+                                child.material.color.r = Math.min(1.0, child.material.color.r * 1.4);
+                                child.material.color.g = Math.min(1.0, child.material.color.g * 1.4);
+                                child.material.color.b = Math.min(1.0, child.material.color.b * 1.4);
                               }
-                              mat.needsUpdate = true;
-                            });
-                          } else {
-                            child.material.emissive = child.material.emissive || new (window as any).THREE.Color(0x222222);
-                            child.material.emissiveIntensity = 0.3;
-                            if (child.material.color) {
-                              child.material.color.r = Math.min(1.0, child.material.color.r * 1.4);
-                              child.material.color.g = Math.min(1.0, child.material.color.g * 1.4);
-                              child.material.color.b = Math.min(1.0, child.material.color.b * 1.4);
+                              child.material.needsUpdate = true;
                             }
-                            child.material.needsUpdate = true;
                           }
-                        }
-                      });
-                    }
-                  });
-                  console.log('Models brightness enhanced');
-                }, 1000);
+                        });
+                      }
+                    });
+                  }, 500);
 
-                resolve(true);
+                  // 全てのシーンが読み込まれたら完了
+                  if (loadedCount >= totalScenes) {
+                    console.log('All scenes loaded and brightness enhanced');
+                    resolve(true);
+                  }
+                });
               });
 
               // タイムアウトフォールバック
               setTimeout(() => {
-                console.log('A-Frame scene timeout fallback');
+                console.log(`A-Frame scenes timeout fallback (${loadedCount}/${totalScenes} loaded)`);
                 resolve(true);
-              }, 3000);
+              }, 5000);
             } else {
-              console.warn('A-Frame scene not found');
+              console.warn('No A-Frame scenes found');
               resolve(true);
             }
           });
@@ -359,9 +365,9 @@ const SimpleMarkerAR = () => {
         delete (window as any)._arCleanupListeners;
       }
 
-      // A-Frameシーンを削除
-      const scene = document.querySelector('a-scene');
-      if (scene) {
+      // 全てのA-Frameシーンを削除
+      const scenes = document.querySelectorAll('a-scene');
+      scenes.forEach((scene) => {
         // MindARシステムを停止
         const mindarSystem = (scene as any).systems?.['mindar-image-system'];
         if (mindarSystem && typeof mindarSystem.stop === 'function') {
@@ -380,7 +386,7 @@ const SimpleMarkerAR = () => {
         }
 
         scene.remove();
-      }
+      });
 
       // bodyのスタイルをリセット
       document.body.style.margin = '';
@@ -398,40 +404,44 @@ const SimpleMarkerAR = () => {
 
   const handleGetModel = () => {
     // 現在表示されているモデルを検出してコレクションに追加（1つだけ）
-    const scene = document.querySelector('a-scene');
-    if (scene) {
-      const targets = scene.querySelectorAll('[mindar-image-target]');
-      let foundModel = null;
+    const scenes = document.querySelectorAll('a-scene');
+    let foundModel: string | null = null;
 
-      // 最初に見つかった表示中のモデルを取得
-      for (let i = 0; i < targets.length; i++) {
-        const target = targets[i] as any;
-        if (target.object3D && target.object3D.visible) {
-          const modelName = modelNames[i];
+    // 全てのシーンをチェック
+    scenes.forEach((scene, sceneIndex) => {
+      if (foundModel) return; // すでに見つかっていたらスキップ
+
+      const targets = scene.querySelectorAll('[mindar-image-target]');
+      targets.forEach((target) => {
+        if (foundModel) return; // すでに見つかっていたらスキップ
+
+        const targetEl = target as any;
+        if (targetEl.object3D && targetEl.object3D.visible) {
+          const modelName = modelNames[sceneIndex];
           if (!collectedModels.includes(modelName)) {
             foundModel = modelName;
-            break; // 最初の1つだけで終了
           }
         }
-      }
+      });
+    });
 
-      if (foundModel) {
-        setCollectedModels(prev => {
-          const newCollection = [...prev, foundModel];
-          console.log('Collected model:', foundModel);
+    if (foundModel) {
+      const modelToAdd = foundModel;
+      setCollectedModels(prev => {
+        const newCollection = [...prev, modelToAdd];
+        console.log('Collected model:', modelToAdd);
 
-          // 5つ全部集まったかチェック
-          if (newCollection.length === 5) {
-            setTimeout(() => {
-              setShowComplete(true);
-            }, 500); // 少し遅延させてアニメーションを自然に
-          }
+        // 5つ全部集まったかチェック
+        if (newCollection.length === 5) {
+          setTimeout(() => {
+            setShowComplete(true);
+          }, 500); // 少し遅延させてアニメーションを自然に
+        }
 
-          return newCollection;
-        });
-      } else {
-        console.log('No new model found or already collected');
-      }
+        return newCollection;
+      });
+    } else {
+      console.log('No new model found or already collected');
     }
   };
 

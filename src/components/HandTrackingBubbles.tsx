@@ -2,8 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
 import { Camera, ArrowLeft } from 'lucide-react';
-import { Hands, Results } from '@mediapipe/hands';
-import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 
 interface Bubble {
   id: string;
@@ -16,6 +14,10 @@ interface Bubble {
   rotationSpeed: THREE.Vector3; // 回転速度を追加
 }
 
+interface Results {
+  multiHandLandmarks?: any[];
+}
+
 const HandTrackingBubbles = () => {
   const mountRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,8 +26,8 @@ const HandTrackingBubbles = () => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const frameRef = useRef<number | null>(null);
-  const handsRef = useRef<Hands | null>(null);
-  const mediaPipeCameraRef = useRef<MediaPipeCamera | null>(null);
+  const handsRef = useRef<any>(null);
+  const mediaPipeCameraRef = useRef<any>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
   
   const [isActive, setIsActive] = useState(false);
@@ -294,9 +296,11 @@ const HandTrackingBubbles = () => {
         directionalLight.position.set(1, 1, 1);
         scene.add(directionalLight);
 
-        // MediaPipe Handsの初期化
+        // MediaPipe Handsを動的にロード
+        const { Hands } = await import('@mediapipe/hands');
+
         const hands = new Hands({
-          locateFile: (file) => {
+          locateFile: (file: string) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
           }
         });
@@ -336,22 +340,21 @@ const HandTrackingBubbles = () => {
           
           // ストリームを保存
           videoStreamRef.current = stream;
-          
-          // MediaPipeのカメラヘルパーを使用
-          const mediaCamera = new MediaPipeCamera(video, {
-            onFrame: async () => {
-              if (handsRef.current) {
-                await handsRef.current.send({ image: video });
-              }
-            },
-            width: 640, // 解像度を下げる
-            height: 480
-          });
-          
-          await mediaCamera.start();
-          mediaPipeCameraRef.current = mediaCamera;
-          
-          console.log('MediaPipe camera started successfully');
+
+          // 手動でフレームを送信（MediaPipeCameraを使わない）
+          const sendFrames = async () => {
+            if (handsRef.current && videoRef.current) {
+              await handsRef.current.send({ image: videoRef.current });
+            }
+            if (mediaPipeCameraRef.current) {
+              requestAnimationFrame(sendFrames);
+            }
+          };
+
+          mediaPipeCameraRef.current = { active: true };
+          requestAnimationFrame(sendFrames);
+
+          console.log('MediaPipe hand tracking started successfully');
         }
 
         setIsLoaded(true);
@@ -402,11 +405,6 @@ const HandTrackingBubbles = () => {
           
           // MediaPipeカメラを停止
           if (mediaPipeCameraRef.current) {
-            try {
-              mediaPipeCameraRef.current.stop();
-            } catch (error) {
-              console.warn('Error stopping MediaPipe camera during cleanup:', error);
-            }
             mediaPipeCameraRef.current = null;
           }
           

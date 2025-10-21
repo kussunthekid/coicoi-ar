@@ -26,7 +26,7 @@ export default function StartPage() {
           {/* ロゴエリア */}
           <div className="mb-8 md:mb-12">
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-bold text-white mb-4 tracking-wider drop-shadow-2xl">
-              COICOIフェス AR
+              COICOI.Fes AR
             </h1>
             <p className="text-lg sm:text-xl md:text-2xl text-white/90 font-light">
               ARで特別な瞬間を撮影しよう
