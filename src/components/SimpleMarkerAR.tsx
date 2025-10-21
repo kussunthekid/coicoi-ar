@@ -142,11 +142,10 @@ const SimpleMarkerAR = () => {
             { file: 'targets_pink.mind', model: 'wkwk_pink', name: 'pink' }
           ];
 
-          // 最初のシーンだけcanvas/videoを表示、残りは非表示
+          // 全シーンを生成（canvas/videoは最初のシーンのみ、3Dレンダリングは全て表示）
           const scenesHTML = targetConfigs.map((config, index) => `
             <a-scene
               id="scene-${config.name}"
-              class="${index > 0 ? 'hidden-canvas' : ''}"
               mindar-image="imageTargetSrc: /${config.file}; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
               color-space="sRGB"
               renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, precision: medium"
@@ -191,9 +190,8 @@ const SimpleMarkerAR = () => {
               a-scene {
                 pointer-events: none !important;
               }
-              /* 2番目以降のシーンのcanvas/videoを非表示 */
-              .hidden-canvas canvas,
-              .hidden-canvas video {
+              /* 2番目以降のシーンのvideo要素のみ非表示（canvasは表示してモデルを描画） */
+              a-scene:nth-of-type(n+2) video {
                 display: none !important;
               }
             </style>
