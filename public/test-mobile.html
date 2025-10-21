@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Mobile AR Test</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: monospace; }
+    #log {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.8);
+      color: #0f0;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 9999;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="log">Loading...</div>
+
+  <a-scene
+    mindar-image="imageTargetSrc: /targets.mind; showStats: true; filterMinCF: 0.0001; filterBeta: 0.001"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+
+    <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
+
+    <!-- Test targets with simple boxes -->
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#4299e1"></a-box>
+      <a-text value="TARGET 0" position="0 0.5 0" align="center" color="white" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity mindar-image-target="targetIndex: 1">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#f59e0b"></a-box>
+      <a-text value="TARGET 1" position="0 0.5 0" align="center" color="white" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity mindar-image-target="targetIndex: 2">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#10b981"></a-box>
+      <a-text value="TARGET 2" position="0 0.5 0" align="center" color="white" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity mindar-image-target="targetIndex: 3">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#8b5cf6"></a-box>
+      <a-text value="TARGET 3" position="0 0.5 0" align="center" color="white" scale="2 2 2"></a-text>
+    </a-entity>
+
+    <a-entity mindar-image-target="targetIndex: 4">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#ec4899"></a-box>
+      <a-text value="TARGET 4" position="0 0.5 0" align="center" color="white" scale="2 2 2"></a-text>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    const log = document.getElementById('log');
+    const logs = [];
+
+    function addLog(msg) {
+      const time = new Date().toLocaleTimeString();
+      logs.push(`[${time}] ${msg}`);
+      if (logs.length > 20) logs.shift();
+      log.innerHTML = logs.join('<br>');
+      console.log(msg);
+    }
+
+    window.addEventListener('error', (e) => {
+      addLog('ERROR: ' + e.message);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      addLog('DOM Ready');
+
+      const sceneEl = document.querySelector('a-scene');
+
+      sceneEl.addEventListener('arReady', () => {
+        addLog('AR Ready!');
+
+        const video = sceneEl.querySelector('video');
+        if (video) {
+          addLog(`Video: ${video.videoWidth}x${video.videoHeight}`);
+          addLog(`ReadyState: ${video.readyState}`);
+        } else {
+          addLog('No video element found');
+        }
+      });
+
+      sceneEl.addEventListener('arError', (e) => {
+        addLog('AR Error: ' + JSON.stringify(e.detail));
+      });
+
+      // Target events
+      const targets = document.querySelectorAll('[mindar-image-target]');
+      targets.forEach((target, i) => {
+        target.addEventListener('targetFound', () => {
+          addLog(`✓ Target ${i} FOUND!`);
+        });
+        target.addEventListener('targetLost', () => {
+          addLog(`✗ Target ${i} lost`);
+        });
+      });
+
+      addLog(`Monitoring ${targets.length} targets`);
+    });
+  </script>
+</body>
+</html>

@@ -138,11 +138,12 @@ const SimpleMarkerAR = () => {
         if (containerRef.current) {
           containerRef.current.innerHTML = `
             <a-scene
-              mindar-image="imageTargetSrc: /targets.mind; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5"
+              mindar-image="imageTargetSrc: /targets.mind; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5; showStats: true"
               color-space="sRGB"
               renderer="colorManagement: true, physicallyCorrectLights: true"
               vr-mode-ui="enabled: false"
               device-orientation-permission-ui="enabled: false"
+              webxr="optionalFeatures: dom-overlay, dom-overlay-for-handheld-ar"
               style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; margin: 0; padding: 0;"
             >
               <style>
@@ -175,7 +176,7 @@ const SimpleMarkerAR = () => {
                 <a-asset-item id="wkwk-pink-model" src="/wkwk_pink.glb"></a-asset-item>
               </a-assets>
 
-              <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+              <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
 
               <!-- ライティング - より明るく -->
               <a-light type="ambient" color="#ffffff" intensity="2.0"></a-light>
@@ -213,6 +214,22 @@ const SimpleMarkerAR = () => {
                   console.log('Setting up renderer for screenshot capability');
                   sceneEl.renderer.preserveDrawingBuffer = true;
                 }
+              });
+
+              // MindAR arReady event
+              scene.addEventListener('arReady', () => {
+                console.log('MindAR is ready');
+
+                // スマホ用：カメラ設定を確認・調整
+                const video = scene.querySelector('video');
+                if (video) {
+                  console.log('Camera resolution:', video.videoWidth, 'x', video.videoHeight);
+                  console.log('Video ready state:', video.readyState);
+                }
+              });
+
+              scene.addEventListener('arError', (event: any) => {
+                console.error('MindAR Error:', event.detail);
               });
 
               scene.addEventListener('loaded', () => {
