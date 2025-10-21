@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MindAR Marker Test</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+</head>
+<body style="margin: 0; overflow: hidden;">
+  <a-scene
+    mindar-image="imageTargetSrc: /targets.mind; showStats: true; autoStart: true"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Target 0 - Blue -->
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#4299e1" opacity="0.8"></a-box>
+      <a-text value="BLUE" position="0 0.5 0" align="center" color="white"></a-text>
+    </a-entity>
+
+    <!-- Target 1 - Gold -->
+    <a-entity mindar-image-target="targetIndex: 1">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#f59e0b" opacity="0.8"></a-box>
+      <a-text value="GOLD" position="0 0.5 0" align="center" color="white"></a-text>
+    </a-entity>
+
+    <!-- Target 2 - Green -->
+    <a-entity mindar-image-target="targetIndex: 2">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#10b981" opacity="0.8"></a-box>
+      <a-text value="GREEN" position="0 0.5 0" align="center" color="white"></a-text>
+    </a-entity>
+
+    <!-- Target 3 - Pencil -->
+    <a-entity mindar-image-target="targetIndex: 3">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#8b5cf6" opacity="0.8"></a-box>
+      <a-text value="PENCIL" position="0 0.5 0" align="center" color="white"></a-text>
+    </a-entity>
+
+    <!-- Target 4 - Pink -->
+    <a-entity mindar-image-target="targetIndex: 4">
+      <a-box position="0 0 0" scale="0.5 0.5 0.5" color="#ec4899" opacity="0.8"></a-box>
+      <a-text value="PINK" position="0 0.5 0" align="center" color="white"></a-text>
+    </a-entity>
+
+  </a-scene>
+
+  <div style="position: fixed; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; font-family: monospace; z-index: 9999;">
+    <div>Test Page - Point camera at marker images</div>
+    <div id="status">Loading...</div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const sceneEl = document.querySelector('a-scene');
+      const statusEl = document.getElementById('status');
+
+      sceneEl.addEventListener('arReady', () => {
+        statusEl.textContent = 'AR Ready - Point at marker';
+      });
+
+      sceneEl.addEventListener('arError', (e) => {
+        statusEl.textContent = 'AR Error: ' + e.detail;
+      });
+
+      // Target found/lost events
+      for (let i = 0; i < 5; i++) {
+        const targets = document.querySelectorAll('[mindar-image-target]');
+        if (targets[i]) {
+          targets[i].addEventListener('targetFound', () => {
+            statusEl.textContent = 'Target ' + i + ' Found!';
+            console.log('Target found:', i);
+          });
+          targets[i].addEventListener('targetLost', () => {
+            statusEl.textContent = 'Target ' + i + ' Lost';
+            console.log('Target lost:', i);
+          });
+        }
+      }
+    });
+  </script>
+</body>
+</html>
