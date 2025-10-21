@@ -67,37 +67,74 @@ export default function DebugPage() {
       setTimeout(() => {
         const sceneEl = document.querySelector('a-scene');
         if (!sceneEl) {
-          addLog('Scene not found');
+          addLog('❌ Scene not found');
           return;
         }
 
+        addLog('Scene element found');
+
+        // カメラ権限チェック
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+          .then((stream) => {
+            addLog('✓ Camera permission OK');
+            const track = stream.getVideoTracks()[0];
+            const settings = track.getSettings();
+            addLog(`Camera: ${settings.width}x${settings.height}`);
+            stream.getTracks().forEach(t => t.stop());
+          })
+          .catch((err) => {
+            addLog(`❌ Camera error: ${err.name} - ${err.message}`);
+          });
+
+        sceneEl.addEventListener('loaded', () => {
+          addLog('✓ Scene loaded');
+        });
+
         sceneEl.addEventListener('arReady', () => {
-          addLog('✓ AR Ready!');
+          addLog('✓✓ AR Ready!');
 
           const video = sceneEl.querySelector('video');
           if (video) {
-            addLog(`Video: ${video.videoWidth}x${video.videoHeight}`);
-            addLog(`ReadyState: ${video.readyState}`);
+            const v = video as HTMLVideoElement;
+            addLog(`Video: ${v.videoWidth}x${v.videoHeight}`);
+            addLog(`ReadyState: ${v.readyState}`);
           } else {
             addLog('No video element');
           }
         });
 
         sceneEl.addEventListener('arError', (e: any) => {
-          addLog('AR Error: ' + JSON.stringify(e.detail));
+          addLog(`❌ AR Error: ${JSON.stringify(e.detail)}`);
         });
 
         const targets = document.querySelectorAll('[mindar-image-target]');
         targets.forEach((target, i) => {
           target.addEventListener('targetFound', () => {
-            addLog(`✓✓✓ Target ${i} FOUND!`);
+            addLog(`🎯 Target ${i} FOUND!`);
           });
           target.addEventListener('targetLost', () => {
-            addLog(`✗ Target ${i} lost`);
+            addLog(`Target ${i} lost`);
           });
         });
 
         addLog(`Monitoring ${targets.length} targets`);
+
+        // ビデオ要素の定期チェック
+        let count = 0;
+        const checkVideo = setInterval(() => {
+          count++;
+          const video = document.querySelector('video') as HTMLVideoElement;
+          if (video) {
+            addLog(`Video ${count}: ${video.videoWidth}x${video.videoHeight} ready:${video.readyState}`);
+            if (count >= 3) clearInterval(checkVideo);
+          } else {
+            addLog(`Video ${count}: Not found yet`);
+            if (count >= 10) {
+              addLog('❌ Video never appeared');
+              clearInterval(checkVideo);
+            }
+          }
+        }, 1000);
       }, 1000);
     };
 
