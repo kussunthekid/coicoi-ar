@@ -24,8 +24,6 @@ const SimpleMarkerAR = () => {
   const [showComplete, setShowComplete] = useState(false);
   const scaleRef = useRef(0.5);
 
-  const modelNames = ['wkwk_blue', 'wkwk_gold', 'wkwk_green', 'wkwk_pencil', 'wkwk_pink'];
-
   // IndexedDBからコレクションデータを読み込み
   useEffect(() => {
     const loadData = async () => {
@@ -134,47 +132,10 @@ const SimpleMarkerAR = () => {
 
         if (!isMounted) return;
 
-        // A-Frameシーンを作成（5つの個別ターゲットファイルを使用）
+        // A-Frameシーンを作成（軽量な個別ターゲットファイルを使用し、1シーンのみ表示）
         if (containerRef.current) {
-          const targetConfigs = [
-            { file: 'targets_blue.mind', model: 'wkwk_blue' },
-            { file: 'targets_gold.mind', model: 'wkwk_gold' },
-            { file: 'targets_green.mind', model: 'wkwk_green' },
-            { file: 'targets_pencil.mind', model: 'wkwk_pencil' },
-            { file: 'targets_pink.mind', model: 'wkwk_pink' }
-          ];
-
-          // 5つのシーンを生成
-          const scenesHTML = targetConfigs.map((config, index) => `
-            <a-scene
-              id="scene-${config.model}"
-              mindar-image="imageTargetSrc: /${config.file}; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
-              color-space="sRGB"
-              renderer="colorManagement: true, physicallyCorrectLights: true"
-              vr-mode-ui="enabled: false"
-              device-orientation-permission-ui="enabled: false"
-              webxr="optionalFeatures: dom-overlay, dom-overlay-for-handheld-ar"
-              style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; margin: 0; padding: 0;"
-            >
-              <a-assets>
-                <a-asset-item id="${config.model}-model-${index}" src="/${config.model}.glb"></a-asset-item>
-              </a-assets>
-
-              <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
-
-              <!-- ライティング - より明るく -->
-              <a-light type="ambient" color="#ffffff" intensity="2.0"></a-light>
-              <a-light type="directional" color="#ffffff" intensity="2.5" position="2 3 1"></a-light>
-              <a-light type="directional" color="#ffffff" intensity="1.8" position="-2 3 -1"></a-light>
-              <a-light type="directional" color="#ffffff" intensity="1.5" position="0 3 2"></a-light>
-              <a-light type="hemisphere" color="#ffffff" ground-color="#cccccc" intensity="1.5"></a-light>
-
-              <a-entity mindar-image-target="targetIndex: 0">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#${config.model}-model-${index}" animation-mixer class="brightModel"></a-gltf-model>
-              </a-entity>
-            </a-scene>
-          `).join('');
-
+          // 5つのマーカー画像を結合したtargetsファイルを作る代わりに
+          // 各ターゲットを個別のシーンで扱い、最初のシーンのみ表示
           containerRef.current.innerHTML = `
             <style>
               .a-canvas {
@@ -197,97 +158,119 @@ const SimpleMarkerAR = () => {
               a-scene {
                 pointer-events: none !important;
               }
+              .hidden-scene {
+                display: none !important;
+              }
             </style>
-            ${scenesHTML}
+            <a-scene
+              id="ar-scene"
+              mindar-image="imageTargetSrc: /targets_blue.mind; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
+              color-space="sRGB"
+              renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, precision: medium"
+              vr-mode-ui="enabled: false"
+              device-orientation-permission-ui="enabled: false"
+              webxr="optionalFeatures: dom-overlay, dom-overlay-for-handheld-ar"
+              style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; margin: 0; padding: 0;"
+            >
+              <a-assets>
+                <a-asset-item id="wkwk-blue-model" src="/wkwk_blue.glb"></a-asset-item>
+                <a-asset-item id="wkwk-gold-model" src="/wkwk_gold.glb"></a-asset-item>
+                <a-asset-item id="wkwk-green-model" src="/wkwk_green.glb"></a-asset-item>
+                <a-asset-item id="wkwk-pencil-model" src="/wkwk_pencil.glb"></a-asset-item>
+                <a-asset-item id="wkwk-pink-model" src="/wkwk_pink.glb"></a-asset-item>
+              </a-assets>
+
+              <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
+
+              <!-- ライティング - 最適化 -->
+              <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
+              <a-light type="directional" color="#ffffff" intensity="2.0" position="1 2 1"></a-light>
+
+              <a-entity id="target-blue" mindar-image-target="targetIndex: 0">
+                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-blue-model" animation-mixer></a-gltf-model>
+              </a-entity>
+            </a-scene>
           `;
 
-          // 全てのA-Frameシーンが完全に読み込まれるまで待機
+          // A-Frameシーンが完全に読み込まれるまで待機
           await new Promise((resolve) => {
-            const scenes = document.querySelectorAll('a-scene');
-            let loadedCount = 0;
-            const totalScenes = 5;
+            const scene = document.querySelector('a-scene');
 
-            if (scenes.length > 0) {
-              scenes.forEach((scene, sceneIndex) => {
-                // render-targetイベントでレンダラーを設定
-                scene.addEventListener('render-target-loaded', () => {
-                  const sceneEl = scene as any;
-                  if (sceneEl.renderer) {
-                    console.log(`Scene ${sceneIndex}: Setting up renderer for screenshot capability`);
-                    sceneEl.renderer.preserveDrawingBuffer = true;
-                  }
-                });
+            if (scene) {
+              // render-targetイベントでレンダラーを設定
+              scene.addEventListener('render-target-loaded', () => {
+                const sceneEl = scene as any;
+                if (sceneEl.renderer) {
+                  console.log('Setting up renderer for screenshot capability');
+                  sceneEl.renderer.preserveDrawingBuffer = true;
+                }
+              });
 
-                // MindAR arReady event
-                scene.addEventListener('arReady', () => {
-                  console.log(`Scene ${sceneIndex}: MindAR is ready`);
+              // MindAR arReady event
+              scene.addEventListener('arReady', () => {
+                console.log('MindAR is ready');
 
-                  // スマホ用：カメラ設定を確認・調整
-                  const video = scene.querySelector('video');
-                  if (video) {
-                    console.log(`Scene ${sceneIndex}: Camera resolution:`, video.videoWidth, 'x', video.videoHeight);
-                  }
-                });
+                // スマホ用：カメラ設定を確認・調整
+                const video = scene.querySelector('video');
+                if (video) {
+                  console.log('Camera resolution:', video.videoWidth, 'x', video.videoHeight);
+                }
+              });
 
-                scene.addEventListener('arError', (event: any) => {
-                  console.error(`Scene ${sceneIndex}: MindAR Error:`, event.detail);
-                });
+              scene.addEventListener('arError', (event: any) => {
+                console.error('MindAR Error:', event.detail);
+              });
 
-                scene.addEventListener('loaded', () => {
-                  loadedCount++;
-                  console.log(`A-Frame scene ${sceneIndex} loaded (${loadedCount}/${totalScenes})`);
+              scene.addEventListener('loaded', () => {
+                console.log('A-Frame scene loaded');
 
-                  // このシーンのモデルのマテリアルを明るく設定
-                  setTimeout(() => {
-                    const models = scene.querySelectorAll('a-gltf-model');
-                    models.forEach((modelEl) => {
-                      const model = (modelEl as any).object3D;
-                      if (model) {
-                        model.traverse((child: any) => {
-                          if (child.isMesh && child.material) {
-                            // マテリアルを明るく調整
-                            if (Array.isArray(child.material)) {
-                              child.material.forEach((mat: any) => {
-                                mat.emissive = mat.emissive || new (window as any).THREE.Color(0x222222);
-                                mat.emissiveIntensity = 0.3;
-                                if (mat.color) {
-                                  mat.color.r = Math.min(1.0, mat.color.r * 1.4);
-                                  mat.color.g = Math.min(1.0, mat.color.g * 1.4);
-                                  mat.color.b = Math.min(1.0, mat.color.b * 1.4);
-                                }
-                                mat.needsUpdate = true;
-                              });
-                            } else {
-                              child.material.emissive = child.material.emissive || new (window as any).THREE.Color(0x222222);
-                              child.material.emissiveIntensity = 0.3;
-                              if (child.material.color) {
-                                child.material.color.r = Math.min(1.0, child.material.color.r * 1.4);
-                                child.material.color.g = Math.min(1.0, child.material.color.g * 1.4);
-                                child.material.color.b = Math.min(1.0, child.material.color.b * 1.4);
+                // モデルのマテリアルを明るく設定
+                setTimeout(() => {
+                  const models = scene.querySelectorAll('a-gltf-model');
+                  models.forEach((modelEl) => {
+                    const model = (modelEl as any).object3D;
+                    if (model) {
+                      model.traverse((child: any) => {
+                        if (child.isMesh && child.material) {
+                          // マテリアルを明るく調整
+                          if (Array.isArray(child.material)) {
+                            child.material.forEach((mat: any) => {
+                              mat.emissive = mat.emissive || new (window as any).THREE.Color(0x222222);
+                              mat.emissiveIntensity = 0.3;
+                              if (mat.color) {
+                                mat.color.r = Math.min(1.0, mat.color.r * 1.4);
+                                mat.color.g = Math.min(1.0, mat.color.g * 1.4);
+                                mat.color.b = Math.min(1.0, mat.color.b * 1.4);
                               }
-                              child.material.needsUpdate = true;
+                              mat.needsUpdate = true;
+                            });
+                          } else {
+                            child.material.emissive = child.material.emissive || new (window as any).THREE.Color(0x222222);
+                            child.material.emissiveIntensity = 0.3;
+                            if (child.material.color) {
+                              child.material.color.r = Math.min(1.0, child.material.color.r * 1.4);
+                              child.material.color.g = Math.min(1.0, child.material.color.g * 1.4);
+                              child.material.color.b = Math.min(1.0, child.material.color.b * 1.4);
                             }
+                            child.material.needsUpdate = true;
                           }
-                        });
-                      }
-                    });
-                  }, 500);
+                        }
+                      });
+                    }
+                  });
+                  console.log('Model brightness enhanced');
+                }, 500);
 
-                  // 全てのシーンが読み込まれたら完了
-                  if (loadedCount >= totalScenes) {
-                    console.log('All scenes loaded and brightness enhanced');
-                    resolve(true);
-                  }
-                });
+                resolve(true);
               });
 
               // タイムアウトフォールバック
               setTimeout(() => {
-                console.log(`A-Frame scenes timeout fallback (${loadedCount}/${totalScenes} loaded)`);
+                console.log('A-Frame scene timeout fallback');
                 resolve(true);
-              }, 5000);
+              }, 3000);
             } else {
-              console.warn('No A-Frame scenes found');
+              console.warn('A-Frame scene not found');
               resolve(true);
             }
           });
@@ -365,9 +348,9 @@ const SimpleMarkerAR = () => {
         delete (window as any)._arCleanupListeners;
       }
 
-      // 全てのA-Frameシーンを削除
-      const scenes = document.querySelectorAll('a-scene');
-      scenes.forEach((scene) => {
+      // A-Frameシーンを削除
+      const scene = document.querySelector('a-scene');
+      if (scene) {
         // MindARシステムを停止
         const mindarSystem = (scene as any).systems?.['mindar-image-system'];
         if (mindarSystem && typeof mindarSystem.stop === 'function') {
@@ -386,7 +369,7 @@ const SimpleMarkerAR = () => {
         }
 
         scene.remove();
-      });
+      }
 
       // bodyのスタイルをリセット
       document.body.style.margin = '';
@@ -404,42 +387,31 @@ const SimpleMarkerAR = () => {
 
   const handleGetModel = () => {
     // 現在表示されているモデルを検出してコレクションに追加（1つだけ）
-    const scenes = document.querySelectorAll('a-scene');
-    let foundModel: string | null = null;
+    const scene = document.querySelector('a-scene');
+    if (!scene) return;
 
-    // 全てのシーンをチェック
-    scenes.forEach((scene, sceneIndex) => {
-      if (foundModel) return; // すでに見つかっていたらスキップ
+    const target = scene.querySelector('[mindar-image-target]');
+    if (!target) return;
 
-      const targets = scene.querySelectorAll('[mindar-image-target]');
-      targets.forEach((target) => {
-        if (foundModel) return; // すでに見つかっていたらスキップ
+    const targetEl = target as any;
+    if (targetEl.object3D && targetEl.object3D.visible) {
+      // blueマーカーのみ対応（暫定）
+      const modelName = 'wkwk_blue';
+      if (!collectedModels.includes(modelName)) {
+        setCollectedModels(prev => {
+          const newCollection = [...prev, modelName];
+          console.log('Collected model:', modelName);
 
-        const targetEl = target as any;
-        if (targetEl.object3D && targetEl.object3D.visible) {
-          const modelName = modelNames[sceneIndex];
-          if (!collectedModels.includes(modelName)) {
-            foundModel = modelName;
+          // 5つ全部集まったかチェック
+          if (newCollection.length === 5) {
+            setTimeout(() => {
+              setShowComplete(true);
+            }, 500);
           }
-        }
-      });
-    });
 
-    if (foundModel) {
-      const modelToAdd = foundModel;
-      setCollectedModels(prev => {
-        const newCollection = [...prev, modelToAdd];
-        console.log('Collected model:', modelToAdd);
-
-        // 5つ全部集まったかチェック
-        if (newCollection.length === 5) {
-          setTimeout(() => {
-            setShowComplete(true);
-          }, 500); // 少し遅延させてアニメーションを自然に
-        }
-
-        return newCollection;
-      });
+          return newCollection;
+        });
+      }
     } else {
       console.log('No new model found or already collected');
     }
