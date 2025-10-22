@@ -28,27 +28,29 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({ modelName, onClose }) => 
     );
     camera.position.z = 3;
 
-    // レンダラー作成
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // レンダラー作成（パフォーマンス最適化）
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance', // 高パフォーマンスモード
+      alpha: false, // 透明度不要
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // ピクセル比を制限
     renderer.setClearColor(0xe8e8e8);
     containerRef.current.appendChild(renderer.domElement);
 
-    // ライト追加
-    const light1 = new THREE.DirectionalLight(0xffffff, 1);
-    light1.position.set(1, 1, 1);
-    scene.add(light1);
-
-    const light2 = new THREE.DirectionalLight(0xffffff, 0.5);
-    light2.position.set(-1, -1, -1);
-    scene.add(light2);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // ライト追加（最小限に）
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
 
     // モデル読み込み
     const loader = new GLTFLoader();
     let model: THREE.Group | null = null;
+    let animationFrameId: number;
 
     loader.load(
       `/${modelName}.glb`,
@@ -81,32 +83,66 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({ modelName, onClose }) => 
       }
     );
 
-    // アニメーション
-    const animate = () => {
-      requestAnimationFrame(animate);
+    // アニメーション（最適化版）
+    let lastTime = performance.now();
+    const targetFPS = 60;
+    const frameInterval = 1000 / targetFPS;
 
-      if (model) {
-        model.rotation.y += 0.01;
+    const animate = (currentTime: number) => {
+      animationFrameId = requestAnimationFrame(animate);
+
+      const deltaTime = currentTime - lastTime;
+
+      // フレームレート制限
+      if (deltaTime >= frameInterval) {
+        lastTime = currentTime - (deltaTime % frameInterval);
+
+        if (model) {
+          model.rotation.y += 0.01;
+        }
+
+        renderer.render(scene, camera);
       }
-
-      renderer.render(scene, camera);
     };
-    animate();
+    animationFrameId = requestAnimationFrame(animate);
 
-    // リサイズ対応
+    // リサイズ対応（デバウンス）
+    let resizeTimeout: NodeJS.Timeout;
     const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      }, 100);
     };
     window.addEventListener('resize', handleResize);
 
     // クリーンアップ
     return () => {
+      cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
-      if (containerRef.current && renderer.domElement) {
+      clearTimeout(resizeTimeout);
+
+      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
       }
+
+      // メモリ解放
+      scene.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.geometry?.dispose();
+          if (object.material) {
+            if (Array.isArray(object.material)) {
+              object.material.forEach(mat => mat.dispose());
+            } else {
+              object.material.dispose();
+            }
+          }
+        }
+      });
+
       renderer.dispose();
     };
   }, [modelName]);
