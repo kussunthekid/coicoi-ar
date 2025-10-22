@@ -163,7 +163,7 @@ const SimpleMarkerAR = () => {
               <a-light type="directional" color="#ffffff" intensity="2.0" position="1 2 1"></a-light>
 
               <a-entity mindar-image-target="targetIndex: 0">
-                <a-gltf-model rotation="90 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#${config.model}-model-${index}" animation-mixer></a-gltf-model>
+                <a-gltf-model position="0 0 0" scale="0.5 0.5 0.5" src="#${config.model}-model-${index}" animation-mixer></a-gltf-model>
               </a-entity>
             </a-scene>
           `).join('');
