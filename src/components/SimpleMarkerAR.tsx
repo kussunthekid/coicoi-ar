@@ -678,33 +678,70 @@ const SimpleMarkerAR = () => {
           gap: '10px',
           pointerEvents: 'auto'
         }}>
-          {collectedModels.map((modelName) => (
-            <button
-              key={modelName}
-              onClick={() => setSelectedModel(modelName)}
-              style={{
-                width: '60px',
-                height: '60px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(200, 200, 200, 0.9))',
-                border: '2px solid rgba(255, 255, 255, 0.5)',
-                backdropFilter: 'blur(10px)',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '10px',
-                fontWeight: 'bold',
-                color: '#333',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              {modelName.replace('wkwk_', '').toUpperCase()}
-            </button>
-          ))}
+          {collectedModels.map((modelName) => {
+            // 各モデルの色を定義
+            const colorMap: { [key: string]: { bg: string; border: string; text: string } } = {
+              'wkwk_blue': {
+                bg: 'linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9))',
+                border: '2px solid rgba(96, 165, 250, 0.7)',
+                text: '#ffffff'
+              },
+              'wkwk_gold': {
+                bg: 'linear-gradient(135deg, rgba(251, 191, 36, 0.9), rgba(245, 158, 11, 0.9))',
+                border: '2px solid rgba(252, 211, 77, 0.7)',
+                text: '#ffffff'
+              },
+              'wkwk_green': {
+                bg: 'linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(22, 163, 74, 0.9))',
+                border: '2px solid rgba(74, 222, 128, 0.7)',
+                text: '#ffffff'
+              },
+              'wkwk_pencil': {
+                bg: 'linear-gradient(135deg, rgba(156, 163, 175, 0.9), rgba(107, 114, 128, 0.9))',
+                border: '2px solid rgba(209, 213, 219, 0.7)',
+                text: '#ffffff'
+              },
+              'wkwk_pink': {
+                bg: 'linear-gradient(135deg, rgba(236, 72, 153, 0.9), rgba(219, 39, 119, 0.9))',
+                border: '2px solid rgba(244, 114, 182, 0.7)',
+                text: '#ffffff'
+              }
+            };
+
+            const colors = colorMap[modelName] || {
+              bg: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(200, 200, 200, 0.9))',
+              border: '2px solid rgba(255, 255, 255, 0.5)',
+              text: '#333'
+            };
+
+            return (
+              <button
+                key={modelName}
+                onClick={() => setSelectedModel(modelName)}
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '12px',
+                  background: colors.bg,
+                  border: colors.border,
+                  backdropFilter: 'blur(10px)',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  color: colors.text,
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {modelName.replace('wkwk_', '').toUpperCase()}
+              </button>
+            );
+          })}
         </div>
       )}
 
