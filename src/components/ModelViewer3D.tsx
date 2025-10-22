@@ -12,6 +12,9 @@ interface ModelViewer3DProps {
 
 const ModelViewer3D: React.FC<ModelViewer3DProps> = ({ modelName, onClose }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const previousMousePositionRef = useRef({ x: 0, y: 0 });
+  const rotationRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -37,6 +40,7 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({ modelName, onClose }) => 
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // ピクセル比を制限
     renderer.setClearColor(0xe8e8e8);
+    renderer.domElement.style.cursor = 'grab'; // カーソルスタイル
     containerRef.current.appendChild(renderer.domElement);
 
     // ライト追加（最小限に）
@@ -83,6 +87,44 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({ modelName, onClose }) => 
       }
     );
 
+    // マウス/タッチイベント処理
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      isDraggingRef.current = true;
+      renderer.domElement.style.cursor = 'grabbing';
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      previousMousePositionRef.current = { x: clientX, y: clientY };
+    };
+
+    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDraggingRef.current) return;
+
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+      const deltaX = clientX - previousMousePositionRef.current.x;
+      const deltaY = clientY - previousMousePositionRef.current.y;
+
+      rotationRef.current.y += deltaX * 0.01;
+      rotationRef.current.x += deltaY * 0.01;
+
+      previousMousePositionRef.current = { x: clientX, y: clientY };
+    };
+
+    const handlePointerUp = () => {
+      isDraggingRef.current = false;
+      renderer.domElement.style.cursor = 'grab';
+    };
+
+    // イベントリスナー追加
+    renderer.domElement.addEventListener('mousedown', handlePointerDown);
+    renderer.domElement.addEventListener('mousemove', handlePointerMove);
+    renderer.domElement.addEventListener('mouseup', handlePointerUp);
+    renderer.domElement.addEventListener('mouseleave', handlePointerUp);
+    renderer.domElement.addEventListener('touchstart', handlePointerDown);
+    renderer.domElement.addEventListener('touchmove', handlePointerMove);
+    renderer.domElement.addEventListener('touchend', handlePointerUp);
+
     // アニメーション（最適化版）
     let lastTime = performance.now();
     const targetFPS = 60;
@@ -98,7 +140,12 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({ modelName, onClose }) => 
         lastTime = currentTime - (deltaTime % frameInterval);
 
         if (model) {
-          model.rotation.y += 0.01;
+          // ドラッグ中は自動回転を停止、ドラッグ時の回転を適用
+          if (!isDraggingRef.current) {
+            rotationRef.current.y += 0.01;
+          }
+          model.rotation.y = rotationRef.current.y;
+          model.rotation.x = rotationRef.current.x;
         }
 
         renderer.render(scene, camera);
@@ -124,6 +171,15 @@ const ModelViewer3D: React.FC<ModelViewer3DProps> = ({ modelName, onClose }) => 
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       clearTimeout(resizeTimeout);
+
+      // イベントリスナー削除
+      renderer.domElement.removeEventListener('mousedown', handlePointerDown);
+      renderer.domElement.removeEventListener('mousemove', handlePointerMove);
+      renderer.domElement.removeEventListener('mouseup', handlePointerUp);
+      renderer.domElement.removeEventListener('mouseleave', handlePointerUp);
+      renderer.domElement.removeEventListener('touchstart', handlePointerDown);
+      renderer.domElement.removeEventListener('touchmove', handlePointerMove);
+      renderer.domElement.removeEventListener('touchend', handlePointerUp);
 
       if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
