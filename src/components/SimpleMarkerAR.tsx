@@ -159,9 +159,9 @@ const SimpleMarkerAR = () => {
 
               <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
 
-              <a-light type="ambient" color="#ffffff" intensity="2.0"></a-light>
-              <a-light type="directional" color="#ffffff" intensity="2.5" position="1 2 1"></a-light>
-              <a-light type="hemisphere" color="#ffffff" ground-color="#888888" intensity="1.2"></a-light>
+              <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+              <a-light type="directional" color="#ffffff" intensity="0.75" position="1 2 1"></a-light>
+              <a-light type="hemisphere" color="#ffffff" ground-color="#888888" intensity="0.36"></a-light>
 
               <a-entity mindar-image-target="targetIndex: 0">
                 <a-gltf-model position="0 0 0" scale="0.5 0.5 0.5" src="#${config.model}-model-${index}" animation-mixer></a-gltf-model>
