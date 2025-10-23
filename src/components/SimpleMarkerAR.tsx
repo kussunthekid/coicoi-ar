@@ -146,9 +146,9 @@ const SimpleMarkerAR = () => {
           const scenesHTML = targetConfigs.map((config, index) => `
             <a-scene
               id="scene-${config.name}"
-              mindar-image="imageTargetSrc: /${config.file}; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
+              mindar-image="imageTargetSrc: /${config.file}; maxTrack: 1; uiScanning: none; uiLoading: no; filterMinCF: 0.00005; filterBeta: 0.0005; warmupTolerance: 2; missTolerance: 2;"
               color-space="sRGB"
-              renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true, precision: medium"
+              renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true; highRefreshRate: true; precision: highp; powerPreference: high-performance; alpha: false; logarithmicDepthBuffer: true"
               vr-mode-ui="enabled: false"
               device-orientation-permission-ui="enabled: false"
               style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; margin: 0; padding: 0;"
@@ -159,8 +159,9 @@ const SimpleMarkerAR = () => {
 
               <a-camera position="0 0 0" look-controls="enabled: false" user-height="0"></a-camera>
 
-              <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
-              <a-light type="directional" color="#ffffff" intensity="2.0" position="1 2 1"></a-light>
+              <a-light type="ambient" color="#ffffff" intensity="2.0"></a-light>
+              <a-light type="directional" color="#ffffff" intensity="2.5" position="1 2 1"></a-light>
+              <a-light type="hemisphere" color="#ffffff" ground-color="#888888" intensity="1.2"></a-light>
 
               <a-entity mindar-image-target="targetIndex: 0">
                 <a-gltf-model position="0 0 0" scale="0.5 0.5 0.5" src="#${config.model}-model-${index}" animation-mixer></a-gltf-model>
@@ -208,7 +209,7 @@ const SimpleMarkerAR = () => {
                 loadedCount++;
                 console.log(`Scene ${idx} loaded (${loadedCount}/${scenes.length})`);
 
-                // モデルのマテリアルを明るく設定
+                // モデルのマテリアルを最適化・明るく設定
                 setTimeout(() => {
                   const models = scene.querySelectorAll('a-gltf-model');
                   models.forEach((modelEl) => {
@@ -218,25 +219,39 @@ const SimpleMarkerAR = () => {
                         if (child.isMesh && child.material) {
                           if (Array.isArray(child.material)) {
                             child.material.forEach((mat: any) => {
-                              mat.emissive = mat.emissive || new (window as any).THREE.Color(0x222222);
-                              mat.emissiveIntensity = 0.3;
+                              // マテリアルの最適化
+                              mat.emissive = mat.emissive || new (window as any).THREE.Color(0x333333);
+                              mat.emissiveIntensity = 0.4;
                               if (mat.color) {
-                                mat.color.r = Math.min(1.0, mat.color.r * 1.4);
-                                mat.color.g = Math.min(1.0, mat.color.g * 1.4);
-                                mat.color.b = Math.min(1.0, mat.color.b * 1.4);
+                                mat.color.r = Math.min(1.0, mat.color.r * 1.5);
+                                mat.color.g = Math.min(1.0, mat.color.g * 1.5);
+                                mat.color.b = Math.min(1.0, mat.color.b * 1.5);
                               }
+                              // 高品質レンダリング設定
+                              mat.metalness = mat.metalness !== undefined ? mat.metalness : 0.3;
+                              mat.roughness = mat.roughness !== undefined ? mat.roughness : 0.6;
+                              mat.envMapIntensity = 1.2;
                               mat.needsUpdate = true;
                             });
                           } else {
-                            child.material.emissive = child.material.emissive || new (window as any).THREE.Color(0x222222);
-                            child.material.emissiveIntensity = 0.3;
+                            // マテリアルの最適化
+                            child.material.emissive = child.material.emissive || new (window as any).THREE.Color(0x333333);
+                            child.material.emissiveIntensity = 0.4;
                             if (child.material.color) {
-                              child.material.color.r = Math.min(1.0, child.material.color.r * 1.4);
-                              child.material.color.g = Math.min(1.0, child.material.color.g * 1.4);
-                              child.material.color.b = Math.min(1.0, child.material.color.b * 1.4);
+                              child.material.color.r = Math.min(1.0, child.material.color.r * 1.5);
+                              child.material.color.g = Math.min(1.0, child.material.color.g * 1.5);
+                              child.material.color.b = Math.min(1.0, child.material.color.b * 1.5);
                             }
+                            // 高品質レンダリング設定
+                            child.material.metalness = child.material.metalness !== undefined ? child.material.metalness : 0.3;
+                            child.material.roughness = child.material.roughness !== undefined ? child.material.roughness : 0.6;
+                            child.material.envMapIntensity = 1.2;
                             child.material.needsUpdate = true;
                           }
+                        }
+                        // ジオメトリの最適化
+                        if (child.geometry) {
+                          child.geometry.computeVertexNormals();
                         }
                       });
                     }
