@@ -135,6 +135,21 @@ const MarkerARFrame = () => {
       // A-Frame sceneをHTMLに追加
       containerRef.current.innerHTML = sceneHTML;
 
+      // 少し待ってからイベントリスナーを設定
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      console.log('Checking for video element...');
+      const video = document.querySelector('video');
+      console.log('Video element found:', !!video);
+      if (video) {
+        console.log('Video details:', {
+          width: video.videoWidth,
+          height: video.videoHeight,
+          readyState: video.readyState,
+          paused: video.paused
+        });
+      }
+
       // シンプルなイベントリスナー
       await new Promise<void>((resolve) => {
         const scene = containerRef.current?.querySelector('a-scene');
@@ -156,6 +171,17 @@ const MarkerARFrame = () => {
                 setDetectedMarkers(prev => ({ ...prev, [index]: false }));
               });
             });
+
+            // カメラ確認
+            setTimeout(() => {
+              const videoCheck = document.querySelector('video');
+              console.log('Video check after scene loaded:', !!videoCheck);
+              if (videoCheck) {
+                console.log('Video style:', videoCheck.style.cssText);
+                console.log('Video display:', window.getComputedStyle(videoCheck).display);
+                console.log('Video visibility:', window.getComputedStyle(videoCheck).visibility);
+              }
+            }, 1000);
 
             resolve();
           });
