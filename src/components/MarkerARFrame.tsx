@@ -52,27 +52,27 @@ const MarkerARFrame = () => {
   
   const markerConfigs: Record<string, MarkerConfig> = {
     wkwk_gold: {
-      mindFile: '/targets.mind',
+      mindFile: '/targets/targets.mind',
       modelFile: '/wkwk_gold.glb',
       modelName: 'wkwk_gold画像'
     },
     wkwk_pink: {
-      mindFile: '/targets.mind',
+      mindFile: '/targets/targets.mind',
       modelFile: '/wkwk_pink.glb',
       modelName: 'wkwk_pink画像'
     },
     wkwk_green: {
-      mindFile: '/targets.mind',
+      mindFile: '/targets/targets.mind',
       modelFile: '/wkwk_green.glb',
       modelName: 'wkwk_green画像'
     },
     wkwk_pencil: {
-      mindFile: '/targets.mind',
+      mindFile: '/targets/targets.mind',
       modelFile: '/wkwk_pencil.glb',
       modelName: 'wkwk_pencil画像'
     },
     wkwk_blue: {
-      mindFile: '/targets.mind',
+      mindFile: '/targets/targets.mind',
       modelFile: '/wkwk_blue.glb',
       modelName: 'wkwk_blue画像'
     }
@@ -102,7 +102,7 @@ const MarkerARFrame = () => {
           console.log('Loading MindAR and A-Frame libraries...');
 
           const scripts = [
-            { src: 'https://aframe.io/releases/1.3.0/aframe.min.js', id: 'aframe-script' },
+            { src: 'https://aframe.io/releases/1.5.0/aframe.min.js', id: 'aframe-script' },
             { src: 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js', id: 'mindar-script' }
           ];
 
@@ -519,12 +519,12 @@ const MarkerARFrame = () => {
         console.error('❌ Error checking targets.mind:', e);
       }
 
-      // Create A-Frame scene HTML - テスト用に公式サンプルのtargets.mindを使用
+      // Create A-Frame scene HTML - 公式コード構造に基づく
       const sceneHTML = `
         <a-scene
-          mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind; autoStart: no; uiScanning: no; uiLoading: no; uiError: no; showStats: false; maxTrack: 5; filterMinCF: 0.001; filterBeta: 0.001; warmupTolerance: 5; missTolerance: 5;"
+          mindar-image="imageTargetSrc: /targets/targets.mind;"
           color-space="sRGB"
-          renderer="colorManagement: true; antialias: true; preserveDrawingBuffer: true; outputColorSpace: srgb; physicallyCorrectLights: true; toneMapping: ACESFilmic; toneMappingExposure: 1.2"
+          renderer="colorManagement: true; physicallyCorrectLights: true"
           vr-mode-ui="enabled: false"
           device-orientation-permission-ui="enabled: false"
           stats="false"
@@ -550,27 +550,27 @@ const MarkerARFrame = () => {
 
           <!-- WKWK Blue用 (index 0 - アルファベット順) -->
           <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-blue-model" animation-mixer></a-gltf-model>
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-blue-model"></a-gltf-model>
           </a-entity>
 
           <!-- WKWK Gold用 (index 1 - アルファベット順) -->
           <a-entity mindar-image-target="targetIndex: 1">
-            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-gold-model" animation-mixer></a-gltf-model>
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-gold-model"></a-gltf-model>
           </a-entity>
 
           <!-- WKWK Green用 (index 2 - アルファベット順) -->
           <a-entity mindar-image-target="targetIndex: 2">
-            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-green-model" animation-mixer></a-gltf-model>
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-green-model"></a-gltf-model>
           </a-entity>
 
           <!-- WKWK Pencil用 (index 3 - アルファベット順) -->
           <a-entity mindar-image-target="targetIndex: 3">
-            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pencil-model" animation-mixer></a-gltf-model>
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pencil-model"></a-gltf-model>
           </a-entity>
 
           <!-- WKWK Pink用 (index 4 - アルファベット順) -->
           <a-entity mindar-image-target="targetIndex: 4">
-            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pink-model" animation-mixer></a-gltf-model>
+            <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pink-model"></a-gltf-model>
           </a-entity>
 
           <!-- 強化されたライティング設定 -->
