@@ -5,6 +5,18 @@
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      video {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        z-index: -1 !important;
+      }
+    </style>
   </head>
   <body>
     <a-scene mindar-image="imageTargetSrc: /targets.mind; maxTrack: 5" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
@@ -34,5 +46,46 @@
         <a-gltf-model rotation="0 0 0" position="0 0 0" scale="0.5 0.5 0.5" src="#wkwk-pink-model" animation-mixer></a-gltf-model>
       </a-entity>
     </a-scene>
+
+    <script>
+      // Force video element to be visible
+      function styleVideo() {
+        const video = document.querySelector('video');
+        if (video) {
+          video.style.position = 'absolute';
+          video.style.top = '0';
+          video.style.left = '0';
+          video.style.width = '100%';
+          video.style.height = '100%';
+          video.style.objectFit = 'cover';
+          video.style.zIndex = '-1';
+          video.style.display = 'block';
+          return true;
+        }
+        return false;
+      }
+
+      // Watch for video element
+      const observer = new MutationObserver(() => {
+        if (styleVideo()) observer.disconnect();
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      // Also check periodically
+      const checkInterval = setInterval(() => {
+        if (styleVideo()) clearInterval(checkInterval);
+      }, 100);
+
+      setTimeout(() => clearInterval(checkInterval), 10000);
+
+      // Scene loaded event
+      document.addEventListener('DOMContentLoaded', () => {
+        const scene = document.querySelector('a-scene');
+        scene.addEventListener('loaded', () => {
+          setTimeout(styleVideo, 500);
+        });
+      });
+    </script>
   </body>
 </html>
