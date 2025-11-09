@@ -30,16 +30,17 @@ const MarkerARFrame = () => {
       // React Strict Modeでの二重実行を防ぐ
       if (window.__MARKER_AR_INITIALIZED__) {
         console.log('Already initializing, skipping...');
+        setIsInitialized(true);
         return;
       }
       window.__MARKER_AR_INITIALIZED__ = true;
 
       try {
         // 既存のA-Frameシーンを完全に削除
-        const existingScene = document.querySelector('a-scene');
-        if (existingScene) {
-          console.log('🗑️ Removing existing A-Frame scene...');
-          existingScene.remove();
+        const existingScenes = document.querySelectorAll('a-scene');
+        if (existingScenes.length > 0) {
+          console.log(`🗑️ Removing ${existingScenes.length} existing A-Frame scene(s)...`);
+          existingScenes.forEach(scene => scene.remove());
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
@@ -90,7 +91,9 @@ const MarkerARFrame = () => {
     loadMindAR();
 
     return () => {
-      // クリーンアップ
+      // クリーンアップ: コンポーネントがアンマウントされる時に既存のシーンを削除
+      const existingScenes = document.querySelectorAll('a-scene');
+      existingScenes.forEach(scene => scene.remove());
       window.__MARKER_AR_INITIALIZED__ = false;
     };
   }, []);
